@@ -51,6 +51,11 @@
       "path": "/pairing/:id",
       "public": true
     },
+    "claimScreen": {
+      "method": "PUT",
+      "path": "/pairing/:id",
+      "public": true
+    },
     "listPairings": {
       "method": "GET",
       "path": "/pairings"
@@ -106,6 +111,16 @@
     "setWidgetMode": {
       "method": "PUT",
       "path": "/widget-modes/:id",
+      "public": true
+    },
+    "switchScreen": {
+      "method": "POST",
+      "path": "/screen-switch",
+      "public": true
+    },
+    "renameOwnScreen": {
+      "method": "POST",
+      "path": "/screen-rename",
       "public": true
     }
   }

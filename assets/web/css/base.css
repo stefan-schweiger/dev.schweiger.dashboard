@@ -1,4 +1,4 @@
-/* Page layout, header, board, toasts, the connection form and shared motion. */
+/* Page layout, header, board, toasts, dialogs and shared motion (the setup dialog: settings.css). */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -160,24 +160,6 @@ dialog {
   padding: 20px;
 }
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
-#setup h2 { margin: 0 0 12px; font-size: 20px; }
-#setup label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
-#setup select, #setup input:not([type="checkbox"]) { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--tile-border); background: var(--bg); }
-#setup p { color: var(--text-secondary); font-size: 13px; margin: 6px 0 0; }
-#setup .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
-#setup .primary { background: var(--series-1); color: #ffffff; }
-#setup .setup-error { color: var(--danger); }
-#setup .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font-size: 16px; }
-#setup .switch-row input { width: 22px; height: 22px; margin: 0; accent-color: var(--play); }
-#setup .pairing-code {
-  margin: 18px 0 6px;
-  color: var(--text-primary);
-  font: 700 40px/1 ui-monospace, Menlo, monospace;
-  letter-spacing: 0.08em;
-  text-align: center;
-}
-#setup .pairing-status { min-height: 1.4em; text-align: center; }
-#setup .pairing-status.is-error { color: var(--danger); }
 
 /* ----- Edit mode (js/edit-mode.js): each widget in a card with a ••• menu, and the widget itself can't be used ----- */
 .round-button.is-done { color: var(--shortcut); font-weight: 600; }

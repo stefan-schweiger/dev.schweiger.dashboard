@@ -1,0 +1,206 @@
+/* The setup dialog: connecting to Homey and this browser's settings. Grouped sections of cards with rows, a header and
+   a footer that stay put while the body scrolls. */
+
+dialog.settings {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(86dvh, 760px);
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+/* Rows, footers and status lines set display, which would otherwise show hidden ones. */
+.settings [hidden] { display: none !important; }
+
+/* The dialog is the column, so only the body scrolls; the form still submits with display: contents. */
+dialog.settings[open] { display: flex; flex-direction: column; }
+.settings form { display: contents; }
+
+/* ----- Header, body, footer ----- */
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px 20px;
+  border-bottom: 1px solid var(--tile-border);
+  background: var(--panel);
+}
+.settings-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 19px; font-weight: 650; }
+/* Scoped: widgets.css has a plainer .icon-button for widgets (the speaker's), and loads after this. */
+.settings .icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control);
+  cursor: pointer;
+}
+.settings .icon-button svg { width: 16px; height: 16px; }
+.settings-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 20px; overscroll-behavior: contain; }
+.settings-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--tile-border);
+  background: var(--panel);
+}
+.settings-foot-spacer { flex: 1; }
+
+/* ----- Sections ----- */
+.settings-group { margin-top: 18px; }
+.settings-group-title {
+  margin: 0 4px 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.settings-group-title label { font: inherit; }
+.settings-card { border: 1px solid var(--tile-border); border-radius: 12px; background: var(--tile-filled); overflow: hidden; }
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+.settings-row + .settings-row, .settings-field + .settings-field { border-top: 1px solid var(--tile-border); }
+label.settings-row { cursor: pointer; }
+.settings-field { padding: 12px 14px; }
+.settings-field label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+.settings-hint, .settings-lead { margin: 6px 4px 0; color: var(--text-secondary); font-size: 13px; line-height: 1.4; }
+.settings-field .settings-hint { margin-inline: 0; }
+.settings-lead { margin-top: 12px; font-size: 14px; }
+.settings code { font-size: 0.92em; }
+
+/* ----- Controls ----- */
+.settings select,
+.settings input[type="text"],
+.settings input[type="url"],
+.settings input[type="password"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--tile-border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.settings select.compact { width: auto; max-width: 60%; }
+/* A picker that fills its row, with a button beside it. */
+.settings .settings-row > select:not(.compact) { flex: 1; }
+
+.button {
+  flex: none;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--control);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.button.primary { background: var(--accent); color: #ffffff; }
+.button.plain { padding-inline: 8px; background: none; color: var(--accent); }
+.button.danger { padding-inline: 0; background: none; color: var(--danger); }
+.button:disabled { opacity: 0.45; cursor: default; }
+
+/* A switch that looks the same in every browser; the checkbox keeps role="switch". The knob is a gradient, since
+   browsers differ on pseudo-elements of inputs. */
+.settings-switch {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border-radius: 999px;
+  background: radial-gradient(circle at 13px 50%, #ffffff 9.5px, transparent 10px) var(--track);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--curve-fast-in-out);
+}
+.settings-switch:checked { background: radial-gradient(circle at 31px 50%, #ffffff 9.5px, transparent 10px) var(--accent); }
+:dir(rtl) .settings-switch { background-position: 0 0; scale: -1 1; }
+
+.settings :is(button, select, input, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Opening focuses the body (autofocus), not its first button. */
+.settings-body:focus { outline: none; }
+
+/* ----- Messages ----- */
+.settings-alert {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+  font-size: 14px;
+}
+/* A line with a dot in front: green when something is on, grey otherwise. */
+.settings-status { display: flex; align-items: center; gap: 8px; margin: 8px 4px 0; color: var(--text-secondary); font-size: 13px; }
+.settings-row .settings-status { margin: 0; color: var(--text-primary); font-size: 15px; }
+.settings-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.settings-status.is-on::before { background: var(--play); }
+.settings-more { margin: 8px 4px 0; color: var(--text-secondary); font-size: 13px; }
+.settings-more summary { color: var(--accent); cursor: pointer; }
+.settings-more p { margin: 6px 0 0; line-height: 1.4; }
+
+/* ----- Pairing ----- */
+.pairing-steps { margin: 14px 0 0; padding-inline-start: 22px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+.pairing-card { margin-top: 14px; padding: 22px 16px 16px; text-align: center; }
+.pairing-code {
+  margin: 0;
+  color: var(--text-primary);
+  font: 700 40px/1 ui-monospace, Menlo, monospace;
+  letter-spacing: 0.1em;
+}
+.pairing-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 1.4em;
+  margin: 12px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.pairing-status.is-error { color: var(--danger); }
+.pairing-status.is-waiting::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--tile-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: settings-spin 0.9s linear infinite;
+}
+@keyframes settings-spin { to { rotate: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .pairing-status.is-waiting::before { animation: none; }
+  .settings-switch { transition: none; }
+}
+
+/* ----- A small dialog on top of Settings (rename, switch screen) ----- */
+dialog.settings-popover { width: min(400px, calc(100vw - 32px)); background: var(--panel); }
+.settings-popover .settings-body { padding: 20px 20px 18px; }
+.settings-popover h2 { margin: 0; font-size: 18px; font-weight: 650; }
+.settings-popover .settings-lead { margin: 8px 0 0; }
+.settings-popover input { margin-top: 14px; }
+
+/* On a phone the dialog sits at the bottom, like a sheet. */
+@media (max-width: 559px) {
+  dialog.settings:not(.settings-popover) {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    margin: auto 0 0;
+    border-radius: 16px 16px 0 0;
+    border-bottom: 0;
+  }
+}
