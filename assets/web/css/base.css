@@ -177,6 +177,8 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
   text-align: center;
 }
 #setup .pairing-status { min-height: 1.4em; text-align: center; }
+#setup #screen-rename-name { margin-top: 8px; }
+#setup #setup-screen .actions { margin-top: 10px; }
 #setup .pairing-status.is-error { color: var(--danger); }
 
 /* ----- Edit mode (js/edit-mode.js): each widget in a card with a ••• menu, and the widget itself can't be used ----- */

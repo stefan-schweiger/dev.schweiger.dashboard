@@ -1,6 +1,6 @@
 // Entry point: connects to Homey, picks the dashboard and keeps it live.
 
-import { APP_ID, loadConfig, servedByHomey, writeStoredConfig } from './config.js';
+import { APP_ID, keepStorage, loadConfig, servedByHomey, writeStoredConfig } from './config.js';
 import { isSaving, loadKeyScopes } from './dashboard-save.js';
 import { initEditMode } from './edit-mode.js';
 import { initFit, isFit, setFit } from './fit.js';
@@ -12,7 +12,9 @@ import { initKiosk, isKiosk, kioskHome, resetIdle, screenState, setKiosk, settle
 import { createPairing } from './pairing.js';
 import { createRealtime, loadScript } from './realtime.js';
 import { redrawWidgets, renderDashboard, updateBoard } from './render.js';
-import { registerScreen, screenId, watchScreen } from './screen.js';
+import {
+  adoptScreenId, browserName, dropScreenId, registerScreen, renameOwnScreen, screenId, switchScreen, watchScreen,
+} from './screen.js';
 import { STORAGE_KEY, params, state } from './state.js';
 import { checkForUpdate, watchUpdates } from './updates.js';
 import { loadWidgetModes, watchWidgetModes } from './widget-modes.js';
@@ -130,12 +132,13 @@ function watchHomey() {
 }
 
 const pairing = createPairing({
-  onApproved(token, purpose) {
+  onApproved(token, purpose, approvedScreenId) {
     if (purpose === 'unlock') {
       resetIdle();
       openSetup();
       return;
     }
+    if (approvedScreenId) adoptScreenId(approvedScreenId);
     writeStoredConfig({ token });
     location.reload();
   },
@@ -186,8 +189,15 @@ function openSetup(errorText) {
   const connected = state.dashboardId != null && Boolean(config.token);
   $('setup-title').textContent = connected ? 'Settings' : 'Connect to Homey';
   $('setup-layout').hidden = !connected;
-  $('setup-screen').hidden = !connected || !state.screenName;
-  $('screen-name').textContent = state.screenName ?? '';
+  // Paired by the app, the key is the app's business: no key field, and Disconnect to start over.
+  const paired = connected && servedByHomey;
+  $('setup-token-group').hidden = paired;
+  $('setup-token').required = !paired;
+  $('setup-connect').hidden = paired;
+  $('setup-forget-note').hidden = !connected;
+  $('setup-screen').hidden = !paired || screenId() == null;
+  $('setup-no-screen').hidden = !paired || screenId() != null;
+  if (paired && screenId() != null) showScreenPicker();
   $('setup-kiosk').hidden = !connected;
   $('setup-done').hidden = !connected;
   $('fit-toggle').checked = isFit();
@@ -219,6 +229,92 @@ function openSetup(errorText) {
   }
   if (!$('setup').open) $('setup').showModal();
 }
+
+// "This screen" in Settings: this browser's own screen to rename it, another screen the app knows to become that one,
+// or a new screen. keep: hold on to what is picked and typed (the list changed while Settings was open).
+const NEW_SCREEN = '';
+function showScreenPicker({ keep = false } = {}) {
+  const ownKnown = state.screens.some((screen) => screen.id === screenId());
+  const picked = keep ? $('screen-pick').value : (ownKnown ? screenId() : NEW_SCREEN);
+  const typed = keep ? $('screen-rename-name').value : (ownKnown ? state.screenName ?? '' : '');
+  const options = state.screens.map((screen) => {
+    const where = screen.id === screenId() ? 'this browser' : `seen ${seenAgo(screen.lastSeen)}`;
+    const option = el('option', null, `${screen.name} · ${screen.shortId} · ${where}`);
+    option.value = screen.id;
+    return option;
+  });
+  const fresh = el('option', null, 'A new screen');
+  fresh.value = NEW_SCREEN;
+  $('screen-pick').replaceChildren(...options, fresh);
+  $('screen-pick').value = picked;
+  // A screen forgotten in the meantime falls back to a new one.
+  if ($('screen-pick').value !== picked) $('screen-pick').value = NEW_SCREEN;
+  $('screen-rename-name').value = typed;
+  updateScreenPicker();
+}
+
+// The name field and the button follow what is picked.
+function updateScreenPicker() {
+  const picked = $('screen-pick').value;
+  const own = picked === screenId();
+  const other = own ? null : state.screens.find((screen) => screen.id === picked);
+  const nameInput = $('screen-rename-name');
+  nameInput.hidden = other != null;
+  nameInput.placeholder = own ? '' : browserName();
+  const apply = $('screen-apply');
+  apply.textContent = own ? 'Rename' : other ? 'Become this screen' : 'Add as new screen';
+  apply.classList.toggle('primary', !own);
+  apply.disabled = own && nameInput.value.trim() === (state.screenName ?? '');
+  // The screen this browser leaves keeps its flow cards; another browser may still show it.
+  const leaves = state.screenName && !own
+    ? ` ${state.screenName} stays in the Homey app; forget it there if no browser shows it any more.` : '';
+  $('screen-note').textContent = own
+    ? 'Flow cards can highlight a widget or show a dashboard on this screen by its name.'
+    : other ? `Flow cards aimed at ${other.name} show here from now on.${leaves}`
+      : `This browser becomes a screen of its own for flow cards to aim at.${leaves}`;
+}
+
+function seenAgo(timestamp) {
+  const minutes = Math.floor((Date.now() - timestamp) / 60000);
+  if (minutes < 2) return 'now';
+  if (minutes < 120) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} h ago` : `${Math.floor(hours / 24)} days ago`;
+}
+
+$('screen-pick').addEventListener('change', () => {
+  $('screen-rename-name').value = $('screen-pick').value === screenId() ? state.screenName ?? '' : '';
+  updateScreenPicker();
+});
+$('screen-rename-name').addEventListener('input', updateScreenPicker);
+// Enter applies here rather than submitting the setup form.
+$('screen-rename-name').addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  if (!$('screen-apply').disabled) $('screen-apply').click();
+});
+$('screen-apply').addEventListener('click', async () => {
+  const picked = $('screen-pick').value;
+  const name = $('screen-rename-name').value.trim();
+  $('screen-apply').disabled = true;
+  $('setup-error').hidden = true;
+  try {
+    if (picked === screenId()) {
+      await renameOwnScreen(name);
+      showScreenPicker();
+    } else {
+      // Loads the page again as that screen.
+      await switchScreen(picked === NEW_SCREEN ? null : picked, name);
+    }
+  } catch (error) {
+    $('setup-error').textContent = error.message;
+    $('setup-error').hidden = false;
+    updateScreenPicker();
+  }
+});
+document.addEventListener('screens-changed', () => {
+  if ($('setup').open && !$('setup-screen').hidden) showScreenPicker({ keep: true });
+});
 
 $('setup').addEventListener('close', () => pairing.stop());
 $('setup-done').addEventListener('click', () => $('setup').close());
@@ -301,20 +397,68 @@ function isRevokedKey(error) {
   return servedByHomey && error.status === 401;
 }
 
+// Losing access (the key refused, the screen forgotten) also takes the dashboard away: otherwise what it showed stays
+// readable behind the pairing code. A reload is the sure way to drop all of it (widgets, camera streams, highlights,
+// the live connection); the reason survives it in sessionStorage and boot() shows it.
+const NOTICE_KEY = `${STORAGE_KEY}:notice`;
+function leaveDashboard(notice) {
+  try {
+    sessionStorage.setItem(NOTICE_KEY, notice);
+  } catch {
+    // Without storage the pairing screen shows without the reason.
+  }
+  location.reload();
+}
+
+function takeNotice() {
+  try {
+    const notice = sessionStorage.getItem(NOTICE_KEY);
+    sessionStorage.removeItem(NOTICE_KEY);
+    return notice ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Homey can also refuse a good key for a moment (while it starts up), so the stored key is kept: it is tried again every
+// minute, and pairing again replaces it. Forget in Settings removes it. Refused while a dashboard is showing, the page
+// first reloads to drop it; refused again on that load (nothing drawn yet), it asks for a code.
+let keyRetry = null;
 function pairAgain() {
-  writeStoredConfig({});
+  const notice = 'Homey no longer accepts the key this browser had. Pair it again.';
+  if (state.dashboardId != null) return leaveDashboard(notice);
   state.config = { ...state.config, token: undefined };
   setStatus('offline', 'Not connected');
-  openSetup('Homey no longer accepts the key this browser had. Pair it again.');
+  openSetup(notice);
+  clearInterval(keyRetry);
+  keyRetry = setInterval(async () => {
+    const accepted = await state.client.api('GET', '/api/manager/sessions/session/me').then(() => true, () => false);
+    if (accepted) location.reload();
+  }, 60 * 1000);
+}
+
+// Forgotten in the Homey app: this browser steps back like Disconnect (key, remembered dashboard and screen id gone)
+// and, after a reload that drops what it showed, asks for a code to be approved again, as a fresh screen.
+function disconnectForgotten() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(`${STORAGE_KEY}:dashboard`);
+  } catch {
+    // Ignore unavailable storage.
+  }
+  dropScreenId();
+  leaveDashboard('This screen was removed in the Homey app. Pair this browser again to reconnect it.');
 }
 
 async function boot() {
   state.config = await loadConfig();
+  const notice = takeNotice();
   if (!state.config.homeyUrl || !state.config.token) {
     setStatus('offline', 'Not connected');
-    openSetup();
+    openSetup(notice);
     return;
   }
+  keepStorage();
 
   try {
     state.client = createClient(state.config);
@@ -343,7 +487,7 @@ async function boot() {
     state.realtime = createRealtime(state.client, { onStatus, onReconnect });
     watchHomey();
     watchUpdates();
-    watchScreen();
+    watchScreen({ onForgotten: disconnectForgotten });
     watchHighlight();
   } catch (error) {
     setStatus('error', 'No live updates');
