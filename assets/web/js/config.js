@@ -22,6 +22,16 @@ export function writeStoredConfig(config) {
   }
 }
 
+// Asks the browser to keep this page's storage (the key and the screen id) rather than clear it when space runs low.
+// Firefox asks the user; other browsers decide by themselves. Needs https.
+export async function keepStorage() {
+  try {
+    if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist();
+  } catch {
+    // Not every browser has it.
+  }
+}
+
 export async function loadConfig() {
   // A config.json inside the installed app would be readable by anyone on the network, so only standalone mode reads it.
   let fileConfig = {};

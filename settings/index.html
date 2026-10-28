@@ -3,31 +3,66 @@
   <head>
     <!-- The '/homey.js' script must be included in your settings view to work -->
     <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+    <!-- Homey's own classes (homey-header, homey-form-*, homey-button-*) do the look; this only lays out what goes inside
+         them. Colours come from currentColor and translucent greys, so they work in light and dark. -->
     <style>
       /* Homey's button styles set display, which would otherwise show hidden buttons. */
       [hidden] { display: none !important; }
-      /* Homey's styles turn off text selection; the addresses should stay copyable by hand. */
-      .address { word-break: break-all; font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; -webkit-user-select: text; user-select: text; }
-      /* Homey's styles turn off text selection; the command has to be copyable. */
-      .command { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: rgba(128, 128, 128, 0.15); font-family: ui-monospace, Menlo, monospace; font-size: 0.75em; white-space: pre-wrap; word-break: break-all; -webkit-user-select: text; user-select: text; }
-      .key-check { margin-top: 6px; }
-      .key-check ul { margin: 4px 0 0; padding-left: 1.2em; }
-      .pairing { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
-      .pairing:last-child { border-bottom: 0; }
-      .pairing-text { flex: 1 1 180px; min-width: 0; }
-      .pairing-code { font-family: ui-monospace, Menlo, monospace; font-size: 1.4em; font-weight: 700; letter-spacing: 0.08em; }
-      .pairing-buttons { display: flex; gap: 8px; }
-      .pairing-name { margin-top: 6px; }
-      /* On a phone the buttons wrap below the name; while renaming, the field takes the full width above them. */
-      .screen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
-      .screen:last-child { border-bottom: 0; }
-      .screen-text { flex: 1 1 180px; min-width: 0; }
-      .screen-name { font-weight: 600; overflow-wrap: anywhere; }
-      .screen.is-editing { flex-direction: column; align-items: stretch; }
-      .screen.is-editing .pairing-buttons { justify-content: flex-end; }
+      .homey-form-fieldset { margin-block-end: 8px; }
+      .hint { margin-block: 8px 0; opacity: 0.75; }
       .message-error { color: var(--homey-color-red, #d81c1d); }
       .message-ok { color: #1f7a00; font-weight: 600; }
       @media (prefers-color-scheme: dark) { .message-ok { color: #6ad43a; } }
+
+      /* A list of rows: text on the start side, buttons on the end side; on a phone the buttons wrap below. */
+      .list { display: flex; flex-direction: column; }
+      .item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 12px; border-block-end: 1px solid rgba(128, 128, 128, 0.2); }
+      .item:first-child { padding-block-start: 4px; }
+      .item:last-child { border-block-end: 0; }
+      .item-main { flex: 1 1 200px; min-width: 0; }
+      .item-title { font-weight: 600; overflow-wrap: anywhere; }
+      .item-meta { margin-block-start: 2px; opacity: 0.75; }
+      .item-actions { display: flex; gap: 8px; }
+      .item.is-editing { flex-direction: column; align-items: stretch; }
+      .item.is-editing .item-actions { justify-content: flex-end; }
+      .item-field { display: block; margin-block-start: 10px; }
+      .item-field .homey-text-small { display: block; margin-block-end: 4px; opacity: 0.75; }
+
+      /* The code a browser shows, and a screen's short id. */
+      .code-chip { display: inline-block; padding: 4px 10px; border-radius: 8px; background: rgba(128, 128, 128, 0.14); font: 700 1.35em/1.2 ui-monospace, Menlo, monospace; letter-spacing: 0.08em; }
+      .pill { display: inline-block; margin-inline-start: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(128, 128, 128, 0.14); font: 600 0.75em/1.6 ui-monospace, Menlo, monospace; vertical-align: 0.1em; }
+      .count { opacity: 0.6; font-weight: 400; }
+
+      /* Get started: numbered steps that tick off. */
+      .steps { margin: 0; padding: 0; list-style: none; }
+      .step { display: flex; gap: 12px; padding-block: 8px; }
+      .step-mark { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 0.8em; font-weight: 700; opacity: 0.6; }
+      .step.is-done .step-mark { border-color: #3fc700; background: #3fc700; color: #ffffff; opacity: 1; }
+      .step.is-done .step-text { opacity: 0.55; }
+      .step-text strong { display: block; }
+
+      /* The dashboard's address, copyable by hand too (Homey's styles turn off text selection). */
+      .address { word-break: break-all; font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; -webkit-user-select: text; user-select: text; }
+      .address-box { display: flex; align-items: center; gap: 10px; margin-block-end: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(128, 128, 128, 0.12); }
+      .address-box .address { flex: 1; min-width: 0; }
+
+      /* A status line with a mark in front: ✓ fine, ! needs attention, a dot when there is nothing yet. */
+      .status-line { display: flex; align-items: center; gap: 10px; }
+      .status-mark { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(128, 128, 128, 0.3); color: #ffffff; font-size: 0.75em; font-weight: 700; }
+      .status-line.is-ok .status-mark { background: #3fc700; }
+      .status-line.is-ok .status-mark::before { content: "✓"; }
+      .status-line.is-warn .status-mark { background: var(--homey-color-red, #d81c1d); }
+      .status-line.is-warn .status-mark::before { content: "!"; }
+      .key-check { margin-block-start: 8px; padding-inline-start: 32px; }
+      .key-check ul { margin: 2px 0 8px; padding-inline-start: 1.2em; }
+      #change-key, #key-form { margin-block-start: 12px; }
+
+      /* Longer explanations, folded away. */
+      .more { margin-block-start: 10px; }
+      .more summary { cursor: pointer; font-size: 0.9em; font-weight: 600; opacity: 0.8; }
+      .more p { margin-block: 6px 0; }
+      /* Homey's styles turn off text selection; the command has to be copyable. */
+      .command { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: rgba(128, 128, 128, 0.15); font-family: ui-monospace, Menlo, monospace; font-size: 0.75em; white-space: pre-wrap; word-break: break-all; -webkit-user-select: text; user-select: text; }
     </style>
   </head>
   <body>
@@ -36,40 +71,77 @@
       <p class="homey-subtitle">Your Homey dashboards in any browser on your home network.</p>
     </header>
 
-    <fieldset class="homey-form-fieldset">
-      <legend class="homey-form-legend">Address</legend>
-      <p id="dashboard-url" class="address">…</p>
-      <button id="open" class="homey-button-primary-full">Open dashboard</button>
-      <button id="copy" class="homey-button-secondary-full">Copy link</button>
-      <p id="copy-message" class="homey-text-small message-error" role="status" hidden></p>
-      <p class="homey-text-small">
-        If your browser can't reach that address, use <span id="dashboard-local-url" class="address">…</span>
-      </p>
+    <!-- Until a key is saved and a browser is paired: the three steps, ticked off as they happen. -->
+    <fieldset id="getting-started" class="homey-form-fieldset" hidden>
+      <legend class="homey-form-legend">Get started</legend>
+      <ol class="steps">
+        <li id="step-key" class="step">
+          <span class="step-mark">1</span>
+          <span class="step-text"><strong>Save an API key</strong><span class="homey-text-small">Under API key below.</span></span>
+        </li>
+        <li id="step-open" class="step">
+          <span class="step-mark">2</span>
+          <span class="step-text"><strong>Open the dashboard on a tablet</strong><span class="homey-text-small">Tap Open dashboard, or type the address in its browser.</span></span>
+        </li>
+        <li id="step-approve" class="step">
+          <span class="step-mark">3</span>
+          <span class="step-text"><strong>Approve the code it shows</strong><span class="homey-text-small">It appears on this page under Waiting for approval.</span></span>
+        </li>
+      </ol>
     </fieldset>
 
-    <fieldset class="homey-form-fieldset">
+    <fieldset id="waiting" class="homey-form-fieldset" hidden>
       <legend class="homey-form-legend">Waiting for approval</legend>
-      <div id="pairings"></div>
-      <p class="homey-text-small">
-        A browser opening the dashboard for the first time shows a code; approve it here if the code matches and that
-        browser gets the API key below. A kiosk tablet shows a code too when someone wants to change its settings.
+      <div id="pairings" class="list"></div>
+      <p class="homey-text-small hint">
+        Approve only when the code matches the one on the screen. A browser that picked a screen it was before becomes
+        that screen again, so its flow cards keep working.
       </p>
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
-      <legend class="homey-form-legend">Screens</legend>
-      <div id="screens"></div>
-      <p class="homey-text-small">
-        The browsers showing the dashboard. Flow cards can highlight a widget or show a dashboard on one of them by this
-        name. A browser keeps its name across reloads; a forgotten one that is still in use comes back under its browser
-        name the next time it loads.
-      </p>
+      <legend class="homey-form-legend">Dashboard</legend>
+      <div class="address-box">
+        <span id="dashboard-url" class="address">…</span>
+        <button id="copy" class="homey-button-secondary-small">Copy</button>
+      </div>
+      <p id="copy-message" class="homey-text-small message-error" role="status" hidden></p>
+      <button id="open" class="homey-button-primary-full">Open dashboard</button>
+      <details class="more">
+        <summary>Can't reach that address?</summary>
+        <p class="homey-text-small">
+          Use <span id="dashboard-local-url" class="address">…</span> instead. Over plain http the browser can't keep a
+          kiosk tablet's screen on.
+        </p>
+      </details>
+    </fieldset>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Screens <span id="screen-count" class="count"></span></legend>
+      <div id="screens" class="list"></div>
+      <details class="more">
+        <summary>How screens work</summary>
+        <p class="homey-text-small">
+          Every browser showing the dashboard is a screen, so flow cards can highlight a widget or show a dashboard on
+          one of them. Each name is used once; the short id (#3F9A) tells apart screens that were named alike before.
+          This list is kept on your Homey, so it survives restarts and updates.
+        </p>
+        <p class="homey-text-small">
+          A browser can rename its screen or become another one in the dashboard's Settings. Disconnect there signs only
+          that browser out: its screen stays here, and pairing again brings it back. Forget here removes a screen and
+          breaks the flow cards aimed at it; a browser still showing it is disconnected and has to be approved again.
+        </p>
+      </details>
     </fieldset>
 
     <fieldset class="homey-form-fieldset">
       <legend class="homey-form-legend">API key</legend>
-      <p id="key-status">…</p>
+      <div id="key-status" class="status-line">
+        <span class="status-mark" aria-hidden="true"></span>
+        <span id="key-status-text">…</span>
+      </div>
       <div id="key-check" class="key-check" hidden></div>
+      <p id="key-edit" class="homey-text-small hint" hidden></p>
       <button id="change-key" class="homey-button-secondary-full" hidden>Change key</button>
       <div id="key-form" hidden>
         <div class="homey-form-group">
@@ -78,23 +150,24 @@
         </div>
         <button id="save-key" class="homey-button-primary-full">Save key</button>
         <p id="key-message" class="homey-text-small" role="status" hidden></p>
-        <p class="homey-text-small">
+        <p class="homey-text-small hint">
           The API key form in my.homey.app (Settings → API Keys) has no permission for dashboards, so a key made there
           only works with <strong>Homey</strong> ticked. That gives full access, and every paired browser holds the key.
         </p>
-        <p class="homey-text-small">
-          A key with only what the dashboard needs can be made with a tool that sets permissions directly, such as
-          homeyctl:
-        </p>
-        <pre class="command">homeyctl token create "Web Dashboard" --no-save --scopes homey.dashboard.readonly,homey.device.readonly,homey.device.control,homey.flow.readonly,homey.flow.start,homey.mood.readonly,homey.mood.set,homey.logic.readonly,homey.zone.readonly,homey.notifications.readonly,homey.app.readonly,homey.user.readonly,homey.user.self,homey.insights.readonly,homey.energy.readonly,homey.presence.self,homey.system.readonly,homey.geolocation.readonly</pre>
-        <p class="homey-text-small">
-          To change widgets on the web dashboards too (Edit, next to Settings), use <code>homey.dashboard</code> instead
-          of <code>homey.dashboard.readonly</code>. Every paired browser can then also change and delete dashboards.
-        </p>
-        <p class="homey-text-small">
-          After saving, this page names anything missing or too broad. Paired browsers keep a copy of the key: to sign
-          them all out, delete it and save a new one here.
-        </p>
+        <details class="more">
+          <summary>Create a key with only the needed permissions</summary>
+          <p class="homey-text-small">A tool that sets permissions directly, such as homeyctl, can make one:</p>
+          <pre class="command">homeyctl token create "Web Dashboard" --no-save --scopes homey.dashboard.readonly,homey.device.readonly,homey.device.control,homey.flow.readonly,homey.flow.start,homey.mood.readonly,homey.mood.set,homey.logic.readonly,homey.zone.readonly,homey.notifications.readonly,homey.app.readonly,homey.user.readonly,homey.user.self,homey.insights.readonly,homey.energy.readonly,homey.presence.self,homey.system.readonly,homey.geolocation.readonly</pre>
+          <p class="homey-text-small">
+            To change widgets on the web dashboards too (Edit, next to Settings), use <code>homey.dashboard</code>
+            instead of <code>homey.dashboard.readonly</code>. Every paired browser can then also change and delete
+            dashboards.
+          </p>
+          <p class="homey-text-small">
+            After saving, this page names anything missing or too broad. Paired browsers keep a copy of the key: to sign
+            them all out, delete it and save a new one here.
+          </p>
+        </details>
       </div>
     </fieldset>
 
@@ -104,15 +177,50 @@
         var copyButton = document.getElementById('copy');
         var pairingsNode = document.getElementById('pairings');
         var keyStatus = document.getElementById('key-status');
+        var keyStatusText = document.getElementById('key-status-text');
         var keyInput = document.getElementById('key');
         var keyMessage = document.getElementById('key-message');
         var saveButton = document.getElementById('save-key');
         var keyForm = document.getElementById('key-form');
         var changeButton = document.getElementById('change-key');
         var keyCheck = document.getElementById('key-check');
+        var keyEdit = document.getElementById('key-edit');
         var dashboardUrl = null;
 
+        // ----- Showing the page -----
+
+        // Homey shows the page once ready() is called; waiting for the first answers keeps it from filling in visibly.
+        // A slow answer doesn't hold it back for more than two seconds.
+        var pending = 5;
+        var shown = false;
+        function show() {
+          if (shown) return;
+          shown = true;
+          Homey.ready();
+        }
+        function loaded() {
+          pending -= 1;
+          if (pending === 0) show();
+        }
+        setTimeout(show, 2000);
+
+        // ----- Get started -----
+
+        // What the steps know so far; null until it has been loaded.
+        var progress = { keySet: null, screens: null, waiting: 0 };
+        function updateGettingStarted() {
+          if (progress.keySet == null || progress.screens == null) return;
+          var paired = progress.screens > 0;
+          document.getElementById('getting-started').hidden = progress.keySet && paired;
+          document.getElementById('step-key').classList.toggle('is-done', progress.keySet);
+          document.getElementById('step-open').classList.toggle('is-done', paired || progress.waiting > 0);
+          document.getElementById('step-approve').classList.toggle('is-done', paired);
+        }
+
+        // ----- Dashboard address -----
+
         Homey.get('dashboardUrl', function (err, value) {
+          loaded();
           if (err) return Homey.alert(err);
           dashboardUrl = value;
           document.getElementById('dashboard-url').textContent = value || 'Restart the app to show the address.';
@@ -120,6 +228,7 @@
           copyButton.disabled = !value;
         });
         Homey.get('dashboardLocalUrl', function (err, value) {
+          loaded();
           if (err) return Homey.alert(err);
           document.getElementById('dashboard-local-url').textContent = value || '…';
         });
@@ -163,9 +272,9 @@
           var copyMessage = document.getElementById('copy-message');
           copyText(dashboardUrl).then(function () {
             copyMessage.hidden = true;
-            copyButton.textContent = 'Link copied';
+            copyButton.textContent = 'Copied';
             clearTimeout(copyTimer);
-            copyTimer = setTimeout(function () { copyButton.textContent = 'Copy link'; }, 2500);
+            copyTimer = setTimeout(function () { copyButton.textContent = 'Copy'; }, 2500);
           }, function () {
             // Last resort: select the address so it can be copied by hand.
             var range = document.createRange();
@@ -177,66 +286,73 @@
           });
         });
 
-        // ----- Waiting browsers -----
+        // ----- Helpers -----
+
+        function el(tag, className, text) {
+          var node = document.createElement(tag);
+          if (className) node.className = className;
+          if (text != null) node.textContent = text;
+          return node;
+        }
+
+        function smallButton(label, primary, onClick) {
+          var button = el('button', primary ? 'homey-button-primary-small' : 'homey-button-secondary-small', label);
+          button.addEventListener('click', onClick);
+          return button;
+        }
 
         function minutesAgo(timestamp) {
           var minutes = Math.floor((Date.now() - timestamp) / 60000);
           return minutes < 1 ? 'just now' : minutes + ' min ago';
         }
 
+        function seenAgo(timestamp) {
+          var minutes = Math.floor((Date.now() - timestamp) / 60000);
+          if (minutes < 60) return minutesAgo(timestamp);
+          var hours = Math.floor(minutes / 60);
+          return hours < 48 ? hours + ' h ago' : Math.floor(hours / 24) + ' days ago';
+        }
+
+        // ----- Waiting browsers -----
+
         // What was typed as a browser's name, so a list update (another browser asking) doesn't wipe it.
         var typedNames = {};
 
+        // Shown only while a browser waits; the Get started steps say where codes appear.
         function renderPairings(pairings) {
+          pairings = pairings || [];
           pairingsNode.textContent = '';
-          if (!pairings || pairings.length === 0) {
-            var empty = document.createElement('p');
-            empty.className = 'homey-text-small';
-            empty.textContent = 'No browser is waiting.';
-            pairingsNode.appendChild(empty);
-            return;
-          }
+          document.getElementById('waiting').hidden = pairings.length === 0;
+          progress.waiting = pairings.length;
+          updateGettingStarted();
           pairings.forEach(function (pairing) {
-            var row = document.createElement('div');
-            row.className = 'pairing';
-            var text = document.createElement('div');
-            text.className = 'pairing-text';
-            var code = document.createElement('div');
-            code.className = 'pairing-code';
-            code.textContent = pairing.code.slice(0, 3) + ' ' + pairing.code.slice(3);
-            var meta = document.createElement('div');
-            meta.className = 'homey-text-small';
-            meta.textContent = (pairing.screenName || pairing.name)
-              + (pairing.purpose === 'unlock' ? ' · wants to change kiosk settings' : ' · wants to connect')
-              + ' · ' + minutesAgo(pairing.createdAt);
-            text.appendChild(code);
-            text.appendChild(meta);
-            // A connecting browser is named here, e.g. "Hallway tablet", for flow cards to aim at.
+            var row = el('div', 'item');
+            var main = el('div', 'item-main');
+            main.appendChild(el('div', 'code-chip', pairing.code.slice(0, 3) + ' ' + pairing.code.slice(3)));
+            // A browser that says it is a known screen (chosen on the browser itself) becomes that screen again.
+            main.appendChild(el('div', 'homey-text-small item-meta', (pairing.purpose === 'unlock' ? pairing.name + ' · wants to change kiosk settings'
+              : pairing.claim ? pairing.claim.name + ' (' + pairing.claim.shortId + ') · wants to reconnect'
+                : pairing.name + ' · new screen')
+              + ' · ' + minutesAgo(pairing.createdAt)));
+            // A new screen is named here, e.g. "Hallway tablet", for flow cards to aim at.
             var nameInput = null;
-            if (pairing.purpose === 'pair') {
-              nameInput = document.createElement('input');
-              nameInput.className = 'homey-form-input pairing-name';
+            if (pairing.purpose === 'pair' && !pairing.claim) {
+              var field = el('label', 'item-field');
+              // The field starts filled in, so its placeholder never shows; say what it is for.
+              field.appendChild(el('span', 'homey-text-small', 'Name this screen'));
+              nameInput = el('input', 'homey-form-input');
               nameInput.type = 'text';
               nameInput.maxLength = 60;
-              nameInput.setAttribute('aria-label', 'Name this screen');
-              nameInput.placeholder = 'Name this screen';
-              nameInput.value = typedNames[pairing.id] != null ? typedNames[pairing.id] : (pairing.screenName || pairing.name);
+              nameInput.placeholder = 'e.g. Hallway tablet';
+              nameInput.value = typedNames[pairing.id] != null ? typedNames[pairing.id] : pairing.suggestedName;
               nameInput.addEventListener('input', function () { typedNames[pairing.id] = nameInput.value; });
-              // The field starts filled in, so its placeholder never shows; say what it is for.
-              var nameLabel = document.createElement('div');
-              nameLabel.className = 'homey-text-small pairing-name';
-              nameLabel.textContent = 'Name this screen, then approve:';
-              text.appendChild(nameLabel);
-              text.appendChild(nameInput);
+              field.appendChild(nameInput);
+              main.appendChild(field);
             }
 
-            var buttons = document.createElement('div');
-            buttons.className = 'pairing-buttons';
-            [['approve', 'Approve', 'homey-button-primary-small'], ['decline', 'Decline', 'homey-button-secondary-small']].forEach(function (action) {
-              var button = document.createElement('button');
-              button.className = action[2];
-              button.textContent = action[1];
-              button.addEventListener('click', function () {
+            var buttons = el('div', 'item-actions');
+            [['approve', 'Approve', true], ['decline', 'Decline', false]].forEach(function (action) {
+              var button = smallButton(action[1], action[2], function () {
                 buttons.querySelectorAll('button').forEach(function (other) { other.disabled = true; });
                 button.classList.add('is-loading');
                 var body = action[0] === 'approve' && nameInput ? { name: nameInput.value } : {};
@@ -248,14 +364,15 @@
               buttons.appendChild(button);
             });
 
-            row.appendChild(text);
+            row.appendChild(main);
             row.appendChild(buttons);
             pairingsNode.appendChild(row);
           });
         }
 
-        function loadPairings() {
+        function loadPairings(done) {
           Homey.api('GET', '/pairings', null, function (err, pairings) {
+            if (done) done();
             if (err) return Homey.alert(err.message || String(err));
             renderPairings(pairings);
           });
@@ -263,19 +380,12 @@
 
         // The app announces every change, so a code shows up here as soon as a browser asks.
         Homey.on('pairings', renderPairings);
-        loadPairings();
+        loadPairings(loaded);
 
         // ----- Screens -----
 
         var screensNode = document.getElementById('screens');
         var renamed = null; // { id, from }: the last rename, to explain that flows keep the old name.
-
-        function seenAgo(timestamp) {
-          var minutes = Math.floor((Date.now() - timestamp) / 60000);
-          if (minutes < 60) return minutesAgo(timestamp);
-          var hours = Math.floor(minutes / 60);
-          return hours < 48 ? hours + ' h ago' : Math.floor(hours / 24) + ' days ago';
-        }
 
         // The screen being renamed: the list isn't redrawn under it until it is saved or cancelled.
         var editing = null;
@@ -283,13 +393,13 @@
 
         function renderScreens(screens, force) {
           if (screens) lastScreens = screens;
+          progress.screens = lastScreens.length;
+          updateGettingStarted();
+          document.getElementById('screen-count').textContent = lastScreens.length ? '(' + lastScreens.length + ')' : '';
           if (editing != null && !force) return;
           screensNode.textContent = '';
           if (lastScreens.length === 0) {
-            var empty = document.createElement('p');
-            empty.className = 'homey-text-small';
-            empty.textContent = 'No screens yet. A browser shows up here once it opens the dashboard.';
-            screensNode.appendChild(empty);
+            screensNode.appendChild(el('p', 'homey-text-small hint', 'No screens yet. A browser shows up here once it is paired.'));
             return;
           }
           lastScreens.forEach(function (screen) {
@@ -297,42 +407,28 @@
           });
         }
 
-        function smallButton(label, primary, onClick) {
-          var button = document.createElement('button');
-          button.className = primary ? 'homey-button-primary-small' : 'homey-button-secondary-small';
-          button.textContent = label;
-          button.addEventListener('click', onClick);
-          return button;
-        }
-
         function screenRow(screen) {
-          var row = document.createElement('div');
-          row.className = 'screen';
-          var text = document.createElement('div');
-          text.className = 'screen-text';
-          var name = document.createElement('div');
-          name.className = 'screen-name';
-          name.textContent = screen.name;
-          var meta = document.createElement('div');
-          meta.className = 'homey-text-small';
-          meta.textContent = 'Seen ' + seenAgo(screen.lastSeen);
+          var row = el('div', 'item');
+          var main = el('div', 'item-main');
+          var title = el('div', 'item-title', screen.name);
+          title.appendChild(el('span', 'pill', screen.shortId));
+          var meta = el('div', 'homey-text-small item-meta', 'Seen ' + seenAgo(screen.lastSeen));
           // Flows store the name they were set up with: Homey shows it until the screen is picked again, but the card
           // finds the screen by its id, so it keeps working.
           if (renamed && renamed.id === screen.id) {
             meta.textContent += ' · Renamed. Flows still show "' + renamed.from
               + '" until you pick the screen again in them; they keep working.';
           }
-          text.appendChild(name);
-          text.appendChild(meta);
+          main.appendChild(title);
+          main.appendChild(meta);
 
-          var buttons = document.createElement('div');
-          buttons.className = 'pairing-buttons';
+          var buttons = el('div', 'item-actions');
           buttons.appendChild(smallButton('Rename', false, function () {
             editing = screen.id;
             renderScreens(null, true);
           }));
           buttons.appendChild(smallButton('Forget', false, function () {
-            Homey.confirm('Forget ' + screen.name + '? Flow cards aimed at it stop working.', 'warning', function (err, yes) {
+            Homey.confirm('Forget ' + screen.name + '? Flow cards aimed at it stop working, and a browser showing it is disconnected until you approve it again.', 'warning', function (err, yes) {
               if (err || !yes) return;
               Homey.api('DELETE', '/screens/' + screen.id, null, function (deleteErr, list) {
                 if (deleteErr) return Homey.alert(deleteErr.message || String(deleteErr));
@@ -340,16 +436,14 @@
               });
             });
           }));
-          row.appendChild(text);
+          row.appendChild(main);
           row.appendChild(buttons);
           return row;
         }
 
         function renameRow(screen) {
-          var row = document.createElement('div');
-          row.className = 'screen is-editing';
-          var input = document.createElement('input');
-          input.className = 'homey-form-input';
+          var row = el('div', 'item is-editing');
+          var input = el('input', 'homey-form-input');
           input.type = 'text';
           input.maxLength = 60;
           input.value = screen.name;
@@ -377,8 +471,7 @@
             if (event.key === 'Escape') stop();
           });
 
-          var buttons = document.createElement('div');
-          buttons.className = 'pairing-buttons';
+          var buttons = el('div', 'item-actions');
           buttons.appendChild(save);
           buttons.appendChild(smallButton('Cancel', false, stop));
           row.appendChild(input);
@@ -392,6 +485,7 @@
 
         Homey.on('screens', renderScreens);
         Homey.api('GET', '/screens', null, function (err, screens) {
+          loaded();
           if (err) return Homey.alert(err.message || String(err));
           renderScreens(screens);
         });
@@ -400,55 +494,45 @@
 
         // With a key saved, the form and its instructions stay out of the way until you want to change the key.
         // What the saved key may do: missing permissions break parts of the dashboard, broad ones are a risk.
+        function hasItems(list) {
+          return Boolean(list && list.length);
+        }
+
         function renderKeyCheck(status) {
           keyCheck.textContent = '';
-          keyCheck.hidden = !(status && status.set && (status.missing || status.broad || status.canEdit != null));
+          keyCheck.hidden = !(status && status.set && (hasItems(status.missing) || hasItems(status.broad)));
           if (keyCheck.hidden) return;
-          var addList = function (title, items, className) {
-            var heading = document.createElement('div');
-            heading.className = 'homey-text-small ' + className;
-            heading.textContent = title;
-            var list = document.createElement('ul');
-            list.className = 'homey-text-small';
-            items.forEach(function (item) {
-              var row = document.createElement('li');
-              row.textContent = item;
-              list.appendChild(row);
-            });
-            keyCheck.appendChild(heading);
+          var addList = function (title, items) {
+            keyCheck.appendChild(el('div', 'homey-text-small message-error', title));
+            var list = el('ul', 'homey-text-small');
+            items.forEach(function (item) { list.appendChild(el('li', null, item)); });
             keyCheck.appendChild(list);
           };
-          if (status.missing && status.missing.length) addList('Missing, so parts of the dashboard won’t work:', status.missing, 'message-error');
-          if (status.broad && status.broad.length) addList('Broader than needed (every paired browser can do this):', status.broad, 'message-error');
-          if (!(status.missing && status.missing.length) && !(status.broad && status.broad.length)) {
-            var ok = document.createElement('div');
-            ok.className = 'homey-text-small message-ok';
-            ok.textContent = 'Permissions OK.';
-            keyCheck.appendChild(ok);
-          }
-          if (status.canEdit != null) {
-            var edit = document.createElement('div');
-            edit.className = 'homey-text-small';
-            edit.textContent = status.canEdit
-              ? 'Widgets can be changed on the web dashboards (Edit).'
-              : 'Widgets can only be changed in the Homey app: editing them on the web dashboards needs Dashboards (homey.dashboard).';
-            keyCheck.appendChild(edit);
-          }
+          if (hasItems(status.missing)) addList('Missing, so parts of the dashboard won’t work:', status.missing);
+          if (hasItems(status.broad)) addList('Broader than needed (every paired browser can do this):', status.broad);
         }
 
         function renderKeyStatus(status, justSaved) {
           var isSet = Boolean(status && status.set);
-          keyStatus.textContent = !isSet
-            ? 'No key saved yet. Browsers can only be paired once one is.'
-            : justSaved
-              ? 'Saved. The key belongs to ' + status.user + '; browsers can be paired now.'
-              : 'Set, belongs to ' + status.user + '.';
-          keyStatus.className = justSaved ? 'message-ok' : '';
+          var needsWork = isSet && (hasItems(status.missing) || hasItems(status.broad));
+          keyStatus.className = 'status-line' + (!isSet ? '' : needsWork ? ' is-warn' : ' is-ok');
+          keyStatusText.textContent = !isSet
+            ? 'No key saved yet. Browsers can be paired once one is.'
+            : (justSaved ? 'Saved. ' : '') + 'Belongs to ' + status.user
+              + (needsWork ? '; check the permissions below.' : status.missing ? ', permissions OK.' : '.');
+          keyStatusText.className = justSaved ? 'message-ok' : '';
           renderKeyCheck(status);
+          // Whether the key may change dashboards (Edit on the web dashboards): worth knowing, not a problem.
+          keyEdit.hidden = !isSet || status.canEdit == null;
+          keyEdit.textContent = isSet && status.canEdit
+            ? 'Widgets can be changed on the web dashboards (Edit).'
+            : 'Widgets can only be changed in the Homey app: editing them on the web dashboards needs Dashboards (homey.dashboard).';
           keyForm.hidden = isSet;
           changeButton.hidden = !isSet;
           changeButton.textContent = 'Change key';
           keyMessage.hidden = true;
+          progress.keySet = isSet;
+          updateGettingStarted();
         }
 
         changeButton.addEventListener('click', function () {
@@ -461,6 +545,7 @@
         });
 
         Homey.api('GET', '/api-key', null, function (err, status) {
+          loaded();
           if (err) {
             keyForm.hidden = false;
             return Homey.alert(err.message || String(err));
@@ -505,8 +590,6 @@
             renderKeyStatus(status, true);
           });
         });
-
-        Homey.ready();
       }
     </script>
   </body>

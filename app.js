@@ -103,10 +103,16 @@ const validWidgetId = (id) => typeof id === 'string' && /^[\w-]{8,64}$/.test(id)
 // Screens: browsers showing the dashboard, each with a lasting random id it keeps in its storage and a name you give
 // it, so flow cards can aim at one of them. At most this many are kept; lastSeen is saved at most this often.
 const MAX_SCREENS = 50;
+// Forgotten screen ids are remembered (the latest this many), so a browser still holding one disconnects instead of
+// coming back on its own.
+const MAX_FORGOTTEN = 200;
 const SEEN_EVERY = 60 * 60 * 1000;
 const ALL_SCREENS = 'all';
 const validScreenId = (id) => typeof id === 'string' && /^[\w-]{8,64}$/.test(id);
 const cleanName = (name) => (typeof name === 'string' && name.trim() !== '' ? name.trim().slice(0, 60) : null);
+// Tells apart screens with the same name, e.g. "#3F9A".
+const shortId = (id) => `#${id.slice(0, 4).toUpperCase()}`;
+const newScreenId = () => crypto.randomBytes(16).toString('hex');
 
 function ago(timestamp) {
   const minutes = Math.floor((Date.now() - timestamp) / 60000);
@@ -164,6 +170,8 @@ module.exports = class DashboardApp extends Homey.App {
 
   // purpose 'pair' hands an approved browser the API key. 'unlock' only lets a kiosk tablet, which already has the
   // key, open its settings: approving it hands out nothing.
+  // A connecting browser also gets the known screens (names only), so whoever stands at it can say which one it is,
+  // e.g. after its storage was cleared. It answers with a place in that list and never learns their ids.
   requestPairing({ name, purpose, screenId }) {
     const unlock = purpose === 'unlock';
     if (!unlock && !this.homey.settings.get('apiKey')) {
@@ -171,13 +179,18 @@ module.exports = class DashboardApp extends Homey.App {
     }
     this.prunePairings();
 
+    const ownId = validScreenId(screenId) ? screenId : null;
+    const screens = unlock ? [] : this.listScreens();
     const pairing = {
       // The id is the browser's secret for polling; the short code is what the user compares.
       id: crypto.randomBytes(16).toString('hex'),
       code: String(crypto.randomInt(0, 1_000_000)).padStart(6, '0'),
       name: String(name || 'Browser').slice(0, 60),
       // The browser's lasting id (see Screens), so approving can name it.
-      screenId: validScreenId(screenId) ? screenId : null,
+      screenId: ownId,
+      // The screens it was offered, and the one it says it is (at first its own, if the app knows it).
+      choices: screens.map((screen) => screen.id),
+      claim: screens.some((screen) => screen.id === ownId) ? ownId : null,
       purpose: unlock ? 'unlock' : 'pair',
       createdAt: Date.now(),
       status: 'waiting',
@@ -189,10 +202,32 @@ module.exports = class DashboardApp extends Homey.App {
     for (const stale of waiting.slice(0, Math.max(0, waiting.length - MAX_WAITING))) this.pairings.delete(stale.id);
 
     this.announcePairings();
-    return { id: pairing.id, code: pairing.code, expiresAt: pairing.createdAt + PAIRING_TTL };
+    return {
+      id: pairing.id,
+      code: pairing.code,
+      expiresAt: pairing.createdAt + PAIRING_TTL,
+      screens: screens.map((screen) => ({
+        name: screen.name, shortId: screen.shortId, seen: ago(screen.lastSeen), self: screen.id === pairing.claim,
+      })),
+    };
+  }
+
+  // Public route: a waiting browser says which screen it is, by its place in the list it was given, or null for a
+  // new screen. Approving still decides; the settings page shows the choice.
+  claimScreen(id, { screen } = {}) {
+    this.prunePairings();
+    const pairing = this.pairings.get(id);
+    if (pairing?.status !== 'waiting' || pairing.purpose !== 'pair') throw new Error('This browser is no longer waiting.');
+    if (screen != null && !(Number.isInteger(screen) && screen >= 0 && screen < pairing.choices.length)) {
+      throw new Error('Unknown screen.');
+    }
+    pairing.claim = screen == null ? null : pairing.choices[screen];
+    this.announcePairings();
+    return { status: 'waiting' };
   }
 
   // The browser polls with its secret id. The key is handed over once, after approval, then the pairing is gone.
+  // screenId: the screen it is from now on, when approving made it a different one than it had.
   getPairing(id) {
     this.prunePairings();
     const pairing = this.pairings.get(id);
@@ -204,27 +239,47 @@ module.exports = class DashboardApp extends Homey.App {
     if (pairing.purpose === 'unlock') return { status: 'approved' };
     const token = this.homey.settings.get('apiKey');
     if (!token) return { status: 'declined' };
-    return { status: 'approved', token };
+    return { status: 'approved', token, screenId: pairing.assignedScreenId ?? null };
   }
 
   // ----- Pairing (settings page) -----
 
-  // screenName: what the browser is already called, if it was paired or named before.
+  // claim: the known screen the browser says it is (null for a new one, also when that screen was forgotten since).
+  // suggestedName: a free name to start the field with for a new screen.
   listPairings() {
     this.prunePairings();
     const screens = this.screens();
     return [...this.pairings.values()]
       .filter((pairing) => pairing.status === 'waiting')
-      .map(({ id, code, name, screenId, purpose, createdAt }) => ({
-        id, code, name, screenName: screens[screenId]?.name ?? null, purpose, createdAt,
+      .map(({ id, code, name, claim, purpose, createdAt }) => ({
+        id,
+        code,
+        name,
+        claim: screens[claim] != null ? { name: screens[claim].name, shortId: shortId(claim) } : null,
+        suggestedName: purpose === 'pair' ? this.uniqueName(name) : null,
+        purpose,
+        createdAt,
       }));
   }
 
-  // name: what to call the browser from now on (only when it connects, not for an unlock).
+  // A browser that says it is a known screen becomes that screen again, under its name. Otherwise it is a new screen
+  // called name: under its own id, or a fresh one when its id already belongs to a screen it says it isn't. A browser
+  // without storage (no id) that claims nothing stays without a screen.
   approvePairing(id, { name } = {}) {
     const pairing = this.pairings.get(id);
-    if (pairing?.status === 'waiting' && pairing.purpose === 'pair' && pairing.screenId != null) {
-      this.saveScreen(pairing.screenId, { name: cleanName(name) ?? this.screens()[pairing.screenId]?.name ?? pairing.name });
+    if (pairing?.status === 'waiting' && pairing.purpose === 'pair') {
+      const screens = this.screens();
+      if (screens[pairing.claim] != null) {
+        this.saveScreen(pairing.claim, { lastSeen: Date.now() });
+        pairing.assignedScreenId = pairing.claim;
+      } else if (pairing.screenId != null) {
+        // A forgotten id isn't handed out again.
+        const reuse = screens[pairing.screenId] == null && !this.isForgotten(pairing.screenId);
+        const screenId = reuse ? pairing.screenId : newScreenId();
+        const typed = cleanName(name);
+        this.saveScreen(screenId, { name: typed == null ? this.uniqueName(pairing.name, screenId) : this.freeName(typed, screenId) });
+        pairing.assignedScreenId = screenId;
+      }
     }
     return this.decide(id, 'approved');
   }
@@ -372,13 +427,38 @@ module.exports = class DashboardApp extends Homey.App {
     return screens[id];
   }
 
+  // Whether another screen than exceptId already has this name (ignoring case).
+  nameTaken(name, exceptId) {
+    return Object.entries(this.screens()).some(([id, screen]) => id !== exceptId && screen.name.toLowerCase() === name.toLowerCase());
+  }
+
+  // A name the app picks itself: the browser's name, or "Chrome on Android 2", 3, … when another screen has it.
+  uniqueName(name, exceptId) {
+    const base = cleanName(name) ?? 'Browser';
+    for (let number = 1; ; number += 1) {
+      const suffix = number === 1 ? '' : ` ${number}`;
+      const candidate = base.slice(0, 60 - suffix.length) + suffix;
+      if (!this.nameTaken(candidate, exceptId)) return candidate;
+    }
+  }
+
+  // A name typed in the settings page must not be another screen's, or flow cards couldn't tell them apart.
+  freeName(name, exceptId) {
+    const clean = cleanName(name);
+    if (clean == null) throw new Error('Give the screen a name.');
+    if (this.nameTaken(clean, exceptId)) throw new Error(`Another screen is already called "${clean}".`);
+    return clean;
+  }
+
   // Public route: a dashboard says hello on load and after reconnecting. One that isn't known yet (paired before
   // screens existed, or set up with a typed key) is added under its browser name.
   async screenHello({ token, id, name }) {
     await this.checkKey(token);
     if (!validScreenId(id)) throw new Error('Invalid screen id.');
+    // Forgotten in the Homey app: the dashboard disconnects and has to be approved again.
+    if (this.isForgotten(id)) return { forgotten: true };
     let screen = this.screens()[id];
-    if (screen == null) screen = this.saveScreen(id, { name: cleanName(name) ?? 'Browser' });
+    if (screen == null) screen = this.saveScreen(id, { name: this.uniqueName(name, id) });
     else if (Date.now() - screen.lastSeen > SEEN_EVERY) screen = this.saveScreen(id, { lastSeen: Date.now() });
     // A screen that comes along while every screen shows a highlight shows it too.
     const everywhere = this.highlights.get(ALL_SCREENS);
@@ -386,32 +466,67 @@ module.exports = class DashboardApp extends Homey.App {
       this.highlights.set(id, everywhere);
       this.announceHighlights();
     }
-    return { name: screen.name };
+    // Every screen, for the dashboard's Settings to switch between (it hears changes through the `screens` event).
+    return { name: screen.name, screens: this.listScreens() };
+  }
+
+  // Public route: a connected dashboard becomes another screen (to: its id) or a new one (to: null), called name or,
+  // without one, its browser name made unique. It holds the key already, which can do far more, so this needs no
+  // approval. The screen it was stays: another browser may still be it. Returns the id to keep.
+  async switchScreen({ token, to, name, browser }) {
+    await this.checkKey(token);
+    if (to != null) {
+      if (this.screens()[to] == null) throw new Error('This screen is gone.');
+      return { id: to, name: this.saveScreen(to, { lastSeen: Date.now() }).name };
+    }
+    const id = newScreenId();
+    const typed = cleanName(name);
+    return { id, name: this.saveScreen(id, { name: typed == null ? this.uniqueName(browser, id) : this.freeName(typed, id) }).name };
+  }
+
+  // Public route: a connected dashboard renames its own screen (names stay unique).
+  async renameOwnScreen({ token, id, name }) {
+    await this.checkKey(token);
+    this.renameScreen(id, { name });
+    return { name: this.screens()[id].name };
   }
 
   // Settings page.
   listScreens() {
     return Object.entries(this.screens())
-      .map(([id, screen]) => ({ id, ...screen }))
+      .map(([id, screen]) => ({ id, shortId: shortId(id), ...screen }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   renameScreen(id, { name } = {}) {
     if (this.screens()[id] == null) throw new Error('This screen is gone.');
-    const clean = cleanName(name);
-    if (clean == null) throw new Error('Give the screen a name.');
-    this.saveScreen(id, { name: clean });
+    this.saveScreen(id, { name: this.freeName(name, id) });
     return this.listScreens();
   }
 
-  // The browser itself keeps its id; if it is still in use, it comes back under its browser name.
+  // Forgetting a screen also disconnects the browsers showing it: an open one is told now, any other when it next says
+  // hello. They pair again (with a new approval) under a fresh id. The key is shared, so this is the dashboard
+  // stepping back, not a revoked key.
   forgetScreen(id) {
     const screens = this.screens();
     delete screens[id];
     this.homey.settings.set('screens', screens);
+    const forgotten = [...this.forgottenScreens().filter((other) => other !== id), id].slice(-MAX_FORGOTTEN);
+    this.homey.settings.set('forgottenScreens', forgotten);
+    this.homey.api.realtime('screen-forgotten', { id });
     this.announceScreens();
+    // A browser waiting to become this screen now asks to be a new one.
+    this.announcePairings();
     if (this.highlights.delete(id)) this.announceHighlights();
     return this.listScreens();
+  }
+
+  forgottenScreens() {
+    return this.homey.settings.get('forgottenScreens') ?? [];
+  }
+
+  isForgotten(id) {
+    return id != null && this.forgottenScreens().includes(id);
   }
 
   announceScreens() {
@@ -422,7 +537,7 @@ module.exports = class DashboardApp extends Homey.App {
   screenChoices(query, everyone) {
     return [
       { id: ALL_SCREENS, name: everyone },
-      ...this.listScreens().map((screen) => ({ id: screen.id, name: screen.name, description: `Seen ${ago(screen.lastSeen)}` })),
+      ...this.listScreens().map((screen) => ({ id: screen.id, name: screen.name, description: `${screen.shortId} · Seen ${ago(screen.lastSeen)}` })),
     ].filter((choice) => matches(query, choice.name));
   }
 
