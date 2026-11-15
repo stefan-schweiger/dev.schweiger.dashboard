@@ -19,5 +19,8 @@
   },
   "1.4.0": {
     "en": "New: edit mode now also changes built-in widgets: the devices, lights, speaker, thermostat, Flows, moods, variables or dashboards a widget shows, a note's colour, a line chart's Insight, time span and dark mode, and the categories a Timeline shows. Fixed: a Timeline leaves out the categories switched off in the Homey app, a chart set to dark mode stays dark, and a light widget shows its own name."
+  },
+  "1.4.1": {
+    "en": "Fixed: Google Nest cameras play live, locks show Locked or Unlocked and windows how far they're open, an idle thermostat looks like it does in the Homey app, active devices that aren't lights turn blue, the sideways scrollbar stays at the bottom of the window, and an empty note shows as empty."
   }
 }
