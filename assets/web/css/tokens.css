@@ -40,6 +40,8 @@
   --axis: #c9c9cf;
   --series-1: #b61fe0;
   --series-energy: #2a78d6;
+  /* Buttons and switches in the setup dialog. */
+  --accent: #2a78d6;
   --heat-from: #d64b07;
   --heat-to: #e65f05;
   --cool-from: #3c8fe8;
@@ -76,6 +78,7 @@
     --axis: #4a4a53;
     --series-1: #b347ea;
   --series-energy: #3987e5;
+  --accent: #3987e5;
   --heat-from: #d64b07;
   --heat-to: #e65f05;
   --cool-from: #3987e5;
@@ -112,6 +115,7 @@
   --axis: #4a4a53;
   --series-1: #b347ea;
   --series-energy: #3987e5;
+  --accent: #3987e5;
   --heat-from: #d64b07;
   --heat-to: #e65f05;
   --cool-from: #3987e5;
