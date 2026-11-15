@@ -1,6 +1,10 @@
-// Live camera (device_camera_live). Homey Pro converts the camera's stream (RTSP, HLS, …) to WebRTC with go2rtc, so the
-// browser plays it directly: it sends a WebRTC offer to the Homey and keeps the stream alive. The stream stops while
-// the page is hidden and starts again when it is shown.
+// Live camera (device_camera_live). Homey Pro converts the camera's stream (RTSP, HLS, …) to WebRTC with go2rtc, or the
+// camera's app hands the offer on to a camera that speaks WebRTC itself (Google Nest), so the browser plays it
+// directly: it sends a WebRTC offer to the Homey and keeps the stream alive. The stream stops while the page is hidden
+// and starts again when it is shown.
+// The offer is the Homey app's: audio, video, then a data channel unless the camera's app said it can't take one. Nest
+// refuses any other order ("Offer must contain each of audio, video and application m lines in that order"); go2rtc
+// ignores the data channel.
 // Every widget showing the same camera video shares one stream. A new stream only starts at the camera's next keyframe,
 // which can take seconds (the camera ignores the browser's requests for one), so a second widget for a camera that is
 // already live (a highlight's copy, when this screen's dashboard has the camera too) plays at once instead of standing
@@ -30,6 +34,13 @@ function iceGathered(pc, timeout) {
   });
 }
 
+// Whether the offer gets a data channel: yes, unless the camera's app created the video with dataChannel: false.
+async function wantsDataChannel(videoId) {
+  const videos = await state.client.api('GET', '/api/manager/videos/video').catch(() => null);
+  const video = Object.values(videos ?? {}).find((candidate) => candidate.id === videoId);
+  return video?.options?.dataChannel !== false;
+}
+
 // The stream of one camera video: { stream, status } for its widgets, where status is '' once frames arrive, else
 // what to show instead of "Live". subscribe(fn) calls fn with it on every change and returns an unsubscribe; the stream
 // runs while anyone is subscribed.
@@ -40,6 +51,7 @@ function liveStream(videoId) {
   let pc = null;
   let keepAlive = null;
   let retry = null;
+  const dataChannel = wantsDataChannel(videoId);
   const api = (path, payload) => state.client.api('POST', `/api/manager/videos/video/${videoId}${path}`, payload);
   const emit = () => listeners.forEach((listener) => listener(shared));
   const showStatus = (text) => {
@@ -66,8 +78,8 @@ function liveStream(videoId) {
     showStatus('Connecting…');
     const connection = new RTCPeerConnection();
     pc = connection;
-    connection.addTransceiver('video', { direction: 'recvonly' });
     connection.addTransceiver('audio', { direction: 'recvonly' });
+    connection.addTransceiver('video', { direction: 'recvonly' });
     connection.addEventListener('track', (event) => {
       if (pc !== connection) return;
       const stream = shared.stream ?? event.streams[0] ?? new MediaStream();
@@ -86,6 +98,9 @@ function liveStream(videoId) {
       if (connection.connectionState === 'failed' || connection.connectionState === 'disconnected') retryLater('Reconnecting…');
     });
     try {
+      const withDataChannel = await dataChannel;
+      if (pc !== connection) return;
+      if (withDataChannel) connection.createDataChannel('data');
       await connection.setLocalDescription(await connection.createOffer());
       await iceGathered(connection, 3000);
       const { answerSdp, streamId } = await api('/offer', { offer: connection.localDescription.sdp });
