@@ -13,8 +13,16 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Dashboard">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+  // The theme picked in Settings or with ?theme= (js/theme.js), set before the first paint so it doesn't flash.
+  try {
+    const theme = new URLSearchParams(location.search).get('theme') ?? localStorage.getItem('homey-web-dashboard:theme');
+    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+  } catch {}
+</script>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/settings.css">
 <link rel="stylesheet" href="css/widgets.css">
 <link rel="stylesheet" href="css/sheets.css">
 </head>
@@ -38,64 +46,167 @@
 <div id="highlight-backdrop" class="highlight-backdrop" popover="manual"></div>
 <div id="highlight-holder"></div>
 
-<dialog id="setup">
+<!-- Connecting (pairing with a code, or a typed key) and this browser's settings, as grouped sections (css/settings.css).
+     The header and the footer for the current mode stay put while the body scrolls. -->
+<dialog id="setup" class="settings">
   <form id="setup-form" method="dialog">
-    <h2 id="setup-title">Connect to Homey</h2>
-    <p id="setup-error" class="setup-error" hidden></p>
-    <div id="setup-pairing" hidden>
-      <p id="pairing-intro">In the Homey app, open Apps → Web Dashboard → Configure and approve this browser if the code
-        matches.</p>
-      <p id="unlock-intro" hidden>To change this tablet's settings, open Apps → Web Dashboard → Configure in the Homey app
-        and approve this code.</p>
-      <p id="pairing-code" class="pairing-code">··· ···</p>
-      <p id="pairing-status" class="pairing-status"></p>
-      <div class="actions">
-        <button id="pairing-use-key" class="round-button" type="button">Use an API key</button>
-        <button id="pairing-cancel" class="round-button" type="button" hidden>Cancel</button>
-        <button id="pairing-retry" class="round-button primary" type="button" hidden></button>
+    <header class="settings-head">
+      <h2 id="setup-title">Connect to Homey</h2>
+      <button id="setup-close" class="icon-button" type="button" aria-label="Close" hidden><svg viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path
+        d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </header>
+    <div class="settings-body" tabindex="-1" autofocus>
+      <p id="setup-error" class="settings-alert" role="alert" hidden></p>
+
+      <div id="setup-pairing" hidden>
+        <ol id="pairing-intro" class="pairing-steps">
+          <li>Open the Homey app.</li>
+          <li>Go to Apps → Web Dashboard → Configure.</li>
+          <li>Approve this browser if the code matches.</li>
+        </ol>
+        <p id="unlock-intro" class="settings-lead" hidden>To change this tablet's settings, approve this code in the Homey
+          app under Apps → Web Dashboard → Configure.</p>
+        <div class="settings-card pairing-card">
+          <p id="pairing-code" class="pairing-code">··· ···</p>
+          <p id="pairing-status" class="pairing-status" role="status"></p>
+        </div>
+        <section id="pairing-screen-group" class="settings-group" hidden>
+          <h3 class="settings-group-title"><label for="pairing-screen">This screen is</label></h3>
+          <div class="settings-card">
+            <div class="settings-row"><select id="pairing-screen"></select></div>
+          </div>
+          <p class="settings-hint">Paired before? Pick the screen this browser was, and flow cards aimed at it reach it
+            again.</p>
+        </section>
+      </div>
+
+      <div id="setup-key">
+        <section id="setup-credentials" class="settings-group">
+          <div class="settings-card">
+            <div id="setup-url-group" class="settings-field">
+              <label for="setup-url">Homey address</label>
+              <input id="setup-url" name="homeyUrl" type="url" required placeholder="https://192-168-1-2.homey.homeylocal.com">
+              <p class="settings-hint">Use the HTTPS <code>*.homey.homeylocal.com</code> address so the browser allows the
+                connection.</p>
+            </div>
+            <div id="setup-token-group" class="settings-field">
+              <label for="setup-token">API key</label>
+              <input id="setup-token" name="token" type="password" required autocomplete="off">
+              <p class="settings-hint">Create one in my.homey.app under Settings → API Keys. It is stored only in this
+                browser.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Which screen this browser is. Picking another screen (or a new one) and Rename confirm in #screen-dialog on
+             top (js/main.js). -->
+        <section id="setup-screen" class="settings-group" hidden>
+          <h3 class="settings-group-title"><label for="screen-pick">This screen</label></h3>
+          <div class="settings-card">
+            <div class="settings-row">
+              <select id="screen-pick"></select>
+              <button id="screen-rename" class="button" type="button">Rename</button>
+            </div>
+          </div>
+          <p class="settings-hint">Flow cards can highlight a widget or show a dashboard on this screen by its name. Pick
+            another screen to have this browser show its flow cards instead.</p>
+        </section>
+        <section id="setup-no-screen" class="settings-group" hidden>
+          <h3 class="settings-group-title">This screen</h3>
+          <p class="settings-hint">This browser can't keep a screen id (a private window, say), so it only shows flow
+            cards aimed at all screens.</p>
+        </section>
+
+        <section id="setup-layout" class="settings-group" hidden>
+          <h3 class="settings-group-title">Display</h3>
+          <div class="settings-card">
+            <div class="settings-row">
+              <span id="theme-label">Appearance</span>
+              <div id="theme-picker" class="settings-segmented" role="radiogroup" aria-labelledby="theme-label">
+                <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
+                <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+                <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+              </div>
+            </div>
+            <label class="settings-row" for="fit-toggle">
+              <span>Fit to screen width</span>
+              <input id="fit-toggle" class="settings-switch" type="checkbox" role="switch">
+            </label>
+          </div>
+          <p class="settings-hint">Auto follows the device's light or dark mode. Fit to screen width shrinks the columns
+            to fit instead of scrolling sideways.</p>
+        </section>
+
+        <section id="setup-kiosk" class="settings-group" hidden>
+          <h3 class="settings-group-title">Kiosk</h3>
+          <div class="settings-card">
+            <div class="settings-row">
+              <label for="kiosk-dashboard">Dashboard</label>
+              <select id="kiosk-dashboard" class="compact"></select>
+            </div>
+            <label class="settings-row" for="kiosk-toggle">
+              <span>Always show this dashboard</span>
+              <input id="kiosk-toggle" class="settings-switch" type="checkbox" role="switch">
+            </label>
+          </div>
+          <p class="settings-hint">For a wall tablet: hides the menu and Settings, and comes back to this dashboard after
+            two minutes without a touch. To change it later, press and hold the dashboard name and approve the code in the
+            Homey app.</p>
+          <p id="kiosk-screen" class="settings-status" hidden></p>
+          <details class="settings-more">
+            <summary>Keeping the screen on</summary>
+            <p>Kiosk mode asks the browser to keep the screen on, which browsers only allow over https, and Safari only
+              after a tap. On an iPad, setting Auto-Lock to Never (Settings → Display &amp; Brightness) is the reliable
+              way.</p>
+          </details>
+        </section>
+
+        <section id="setup-connection" class="settings-group" hidden>
+          <h3 class="settings-group-title">Connection</h3>
+          <div class="settings-card">
+            <div class="settings-row">
+              <span id="connection-status" class="settings-status is-on">Connected</span>
+            </div>
+            <div class="settings-row">
+              <button id="setup-forget" class="button danger" type="button">Disconnect this browser</button>
+            </div>
+          </div>
+          <p id="setup-forget-note" class="settings-hint" hidden>The screen stays in the Homey app with its flow cards:
+            pair again and this browser comes back as it. To remove a screen for good, forget it in the Homey app.</p>
+        </section>
       </div>
     </div>
-    <div id="setup-key">
-      <div id="setup-url-group">
-        <label for="setup-url">Homey address</label>
-        <input id="setup-url" name="homeyUrl" type="url" required placeholder="https://192-168-1-2.homey.homeylocal.com">
-        <p>Use the HTTPS <code>*.homey.homeylocal.com</code> address so the browser allows the connection.</p>
-      </div>
-      <label for="setup-token">API key</label>
-      <input id="setup-token" name="token" type="password" required autocomplete="off">
-      <p>Create one in my.homey.app under Settings → API Keys. It is stored only in this browser.</p>
-      <div id="setup-screen" hidden>
-        <label>This screen</label>
-        <p><strong id="screen-name"></strong>. Flow cards can highlight a widget or show a dashboard on this screen by
-          that name. Rename it in the Homey app: Apps → Web Dashboard → Configure.</p>
-      </div>
-      <div id="setup-layout" hidden>
-        <label class="switch-row" for="fit-toggle">
-          <span>Fit to screen width</span>
-          <input id="fit-toggle" type="checkbox" role="switch" switch>
-        </label>
-        <p>Shrinks the dashboard until all its columns fit, instead of scrolling sideways.</p>
-      </div>
-      <div id="setup-kiosk" hidden>
-        <label for="kiosk-dashboard">Kiosk mode</label>
-        <select id="kiosk-dashboard"></select>
-        <label class="switch-row" for="kiosk-toggle">
-          <span>Always show this dashboard</span>
-          <input id="kiosk-toggle" type="checkbox" role="switch" switch>
-        </label>
-        <p>For a wall tablet: hides the dashboard menu and Settings. After two minutes without a touch it closes open
-          controls and comes back to this dashboard. To change it later, press and hold the dashboard name and approve
-          the code in the Homey app.</p>
-        <p>It also asks the browser to keep the screen on, which browsers only allow over https, and Safari only after a
-          tap. On an iPad, setting Auto-Lock to Never (Settings → Display &amp; Brightness) is the reliable way.</p>
-        <p id="kiosk-screen" hidden></p>
-      </div>
-      <div class="actions">
-        <button id="setup-forget" class="round-button" type="button">Forget</button>
-        <button id="setup-done" class="round-button" type="button" hidden>Done</button>
-        <button class="round-button primary" type="submit">Connect</button>
-      </div>
+
+    <footer id="pairing-foot" class="settings-foot" hidden>
+      <button id="pairing-use-key" class="button plain" type="button">Use an API key</button>
+      <span class="settings-foot-spacer"></span>
+      <button id="pairing-cancel" class="button" type="button" hidden>Cancel</button>
+      <button id="pairing-retry" class="button primary" type="button" hidden></button>
+    </footer>
+    <footer id="key-foot" class="settings-foot">
+      <button id="setup-forget-key" class="button plain" type="button">Forget key</button>
+      <span class="settings-foot-spacer"></span>
+      <button id="setup-done" class="button primary" type="button" hidden>Done</button>
+      <button id="setup-connect" class="button primary" type="submit">Connect</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- On top of Settings: rename this screen, switch to another screen, or become a new one. -->
+<dialog id="screen-dialog" class="settings settings-popover">
+  <form id="screen-form" method="dialog">
+    <div class="settings-body">
+      <h2 id="screen-dialog-title"></h2>
+      <p id="screen-dialog-text" class="settings-lead"></p>
+      <input id="screen-dialog-name" type="text" maxlength="60" aria-label="Screen name">
+      <p id="screen-dialog-error" class="settings-alert" role="alert" hidden></p>
     </div>
+    <footer class="settings-foot">
+      <span class="settings-foot-spacer"></span>
+      <button id="screen-dialog-cancel" class="button" type="button">Cancel</button>
+      <button id="screen-dialog-apply" class="button primary" type="submit"></button>
+    </footer>
   </form>
 </dialog>
 
