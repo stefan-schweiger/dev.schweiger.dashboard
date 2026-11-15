@@ -49,6 +49,11 @@
         and approve this code.</p>
       <p id="pairing-code" class="pairing-code">··· ···</p>
       <p id="pairing-status" class="pairing-status"></p>
+      <div id="pairing-screen-group" hidden>
+        <label for="pairing-screen">This screen is</label>
+        <select id="pairing-screen"></select>
+        <p>Paired before? Pick the screen this browser was, and flow cards aimed at it reach it again.</p>
+      </div>
       <div class="actions">
         <button id="pairing-use-key" class="round-button" type="button">Use an API key</button>
         <button id="pairing-cancel" class="round-button" type="button" hidden>Cancel</button>
@@ -61,14 +66,23 @@
         <input id="setup-url" name="homeyUrl" type="url" required placeholder="https://192-168-1-2.homey.homeylocal.com">
         <p>Use the HTTPS <code>*.homey.homeylocal.com</code> address so the browser allows the connection.</p>
       </div>
-      <label for="setup-token">API key</label>
-      <input id="setup-token" name="token" type="password" required autocomplete="off">
-      <p>Create one in my.homey.app under Settings → API Keys. It is stored only in this browser.</p>
-      <div id="setup-screen" hidden>
-        <label>This screen</label>
-        <p><strong id="screen-name"></strong>. Flow cards can highlight a widget or show a dashboard on this screen by
-          that name. Rename it in the Homey app: Apps → Web Dashboard → Configure.</p>
+      <div id="setup-token-group">
+        <label for="setup-token">API key</label>
+        <input id="setup-token" name="token" type="password" required autocomplete="off">
+        <p>Create one in my.homey.app under Settings → API Keys. It is stored only in this browser.</p>
       </div>
+      <!-- Which screen this browser is: rename it, become another screen the app knows, or a new one (js/screen.js). -->
+      <div id="setup-screen" hidden>
+        <label for="screen-pick">This screen</label>
+        <select id="screen-pick"></select>
+        <input id="screen-rename-name" type="text" maxlength="60" aria-label="Screen name">
+        <p id="screen-note"></p>
+        <div class="actions">
+          <button id="screen-apply" class="round-button" type="button"></button>
+        </div>
+      </div>
+      <p id="setup-no-screen" hidden>This browser can't keep a screen id (a private window, say), so it only shows flow
+        cards aimed at all screens.</p>
       <div id="setup-layout" hidden>
         <label class="switch-row" for="fit-toggle">
           <span>Fit to screen width</span>
@@ -91,10 +105,13 @@
         <p id="kiosk-screen" hidden></p>
       </div>
       <div class="actions">
-        <button id="setup-forget" class="round-button" type="button">Forget</button>
+        <button id="setup-forget" class="round-button" type="button">Disconnect</button>
         <button id="setup-done" class="round-button" type="button" hidden>Done</button>
-        <button class="round-button primary" type="submit">Connect</button>
+        <button id="setup-connect" class="round-button primary" type="submit">Connect</button>
       </div>
+      <p id="setup-forget-note" hidden>Disconnect removes the key from this browser. The screen stays in the Homey app
+        with its flow cards: pair again and it comes back as this screen. To remove a screen for good, forget it in the
+        Homey app.</p>
     </div>
   </form>
 </dialog>

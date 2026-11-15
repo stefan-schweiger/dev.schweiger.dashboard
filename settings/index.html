@@ -52,7 +52,9 @@
       <div id="pairings"></div>
       <p class="homey-text-small">
         A browser opening the dashboard for the first time shows a code; approve it here if the code matches and that
-        browser gets the API key below. A kiosk tablet shows a code too when someone wants to change its settings.
+        browser gets the API key below. A browser that lost its storage (cleared, or a kiosk browser that wipes it) can
+        pick the screen it was on its pairing screen; approving it makes it that screen again, so its flows keep
+        working. The same goes for a browser that was disconnected. A kiosk tablet shows a code too when someone wants to change its settings.
       </p>
     </fieldset>
 
@@ -61,8 +63,11 @@
       <div id="screens"></div>
       <p class="homey-text-small">
         The browsers showing the dashboard. Flow cards can highlight a widget or show a dashboard on one of them by this
-        name. A browser keeps its name across reloads; a forgotten one that is still in use comes back under its browser
-        name the next time it loads.
+        name; each name is used once, and the short id (#3F9A) tells apart screens named alike before. This list is kept
+        in the app on your Homey, so it survives restarts and updates. A browser can also rename its screen or become
+        another one in the dashboard's Settings, and Disconnect there signs only the browser out: its screen stays here.
+        Forget removes a screen and breaks the flow cards aimed at it; a browser still showing it is disconnected and
+        has to be approved again.
       </p>
     </fieldset>
 
@@ -206,21 +211,23 @@
             code.textContent = pairing.code.slice(0, 3) + ' ' + pairing.code.slice(3);
             var meta = document.createElement('div');
             meta.className = 'homey-text-small';
-            meta.textContent = (pairing.screenName || pairing.name)
-              + (pairing.purpose === 'unlock' ? ' · wants to change kiosk settings' : ' · wants to connect')
+            // A browser that says it is a known screen (chosen on the browser itself) becomes that screen again.
+            meta.textContent = (pairing.purpose === 'unlock' ? pairing.name + ' · wants to change kiosk settings'
+              : pairing.claim ? pairing.claim.name + ' (' + pairing.claim.shortId + ') · wants to reconnect'
+                : pairing.name + ' · wants to connect as a new screen')
               + ' · ' + minutesAgo(pairing.createdAt);
             text.appendChild(code);
             text.appendChild(meta);
-            // A connecting browser is named here, e.g. "Hallway tablet", for flow cards to aim at.
+            // A new screen is named here, e.g. "Hallway tablet", for flow cards to aim at.
             var nameInput = null;
-            if (pairing.purpose === 'pair') {
+            if (pairing.purpose === 'pair' && !pairing.claim) {
               nameInput = document.createElement('input');
               nameInput.className = 'homey-form-input pairing-name';
               nameInput.type = 'text';
               nameInput.maxLength = 60;
               nameInput.setAttribute('aria-label', 'Name this screen');
               nameInput.placeholder = 'Name this screen';
-              nameInput.value = typedNames[pairing.id] != null ? typedNames[pairing.id] : (pairing.screenName || pairing.name);
+              nameInput.value = typedNames[pairing.id] != null ? typedNames[pairing.id] : pairing.suggestedName;
               nameInput.addEventListener('input', function () { typedNames[pairing.id] = nameInput.value; });
               // The field starts filled in, so its placeholder never shows; say what it is for.
               var nameLabel = document.createElement('div');
@@ -315,7 +322,7 @@
           name.textContent = screen.name;
           var meta = document.createElement('div');
           meta.className = 'homey-text-small';
-          meta.textContent = 'Seen ' + seenAgo(screen.lastSeen);
+          meta.textContent = screen.shortId + ' · Seen ' + seenAgo(screen.lastSeen);
           // Flows store the name they were set up with: Homey shows it until the screen is picked again, but the card
           // finds the screen by its id, so it keeps working.
           if (renamed && renamed.id === screen.id) {
@@ -332,7 +339,7 @@
             renderScreens(null, true);
           }));
           buttons.appendChild(smallButton('Forget', false, function () {
-            Homey.confirm('Forget ' + screen.name + '? Flow cards aimed at it stop working.', 'warning', function (err, yes) {
+            Homey.confirm('Forget ' + screen.name + '? Flow cards aimed at it stop working, and a browser showing it is disconnected until you approve it again.', 'warning', function (err, yes) {
               if (err || !yes) return;
               Homey.api('DELETE', '/screens/' + screen.id, null, function (deleteErr, list) {
                 if (deleteErr) return Homey.alert(deleteErr.message || String(deleteErr));
