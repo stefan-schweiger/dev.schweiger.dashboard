@@ -19,6 +19,8 @@ Pick the dashboard by tapping its name at the top (as in the app), with a dashbo
 
 **Fit to screen width**: by default the columns keep their width and scroll sideways. Turn on *Fit to screen width* in the dashboard's **Settings** and that browser shrinks the whole dashboard until every column fits instead (it never enlarges it). `?fit` does the same for one address without storing it.
 
+**Column width and alignment**: in the dashboard's **Settings**, set the width shared by all columns and choose whether the columns are centered or start at the left edge. These preferences are saved in that browser. Wider columns make camera cards larger while keeping their shape. To resize one app widget, choose **Edit**, open its menu, and choose **Scale app widget**. This scales the widget's contents and height while keeping it within the column width. It is saved in that browser and changes only that widget.
+
 **Screens**: every browser showing the dashboard is a screen with a name, so flow cards can aim at one ("Hallway tablet"). You name a browser when you approve it (the field starts as e.g. *Safari on iPad*). The app's settings in the Homey app list all screens to rename or forget them, and the dashboard's **Settings** shows its own name. A browser keeps a random id in its storage, so the name survives reloads and **Forget**; clearing the browser's data makes it a new screen. Browsers paired before screens existed, or set up with a typed key, show up under their browser name. A private window can't keep an id, so it only follows cards aimed at all screens.
 
 **Flow cards**: put one widget or dashboard in front of everyone, or of one screen, e.g. the front-door camera on the hallway tablet when the doorbell rings. Each card's first choice is the screen: *All screens* or a named one.
@@ -32,6 +34,8 @@ Closing a highlight on one screen (✕, Esc or a tap beside it) closes it on eve
 **Edit mode**: **Edit** (next to Settings; not in kiosk mode) puts the dashboard in edit mode, as in the Homey app. Each widget gets a menu (•••) to move it up, down or to the next column, edit it or remove it (a second tap confirms). Moves show straight away and are saved one after the other; a failed save puts back what Homey has. Only the widgets that changed are drawn again, and moved ones keep their state where the browser can move them as they are (`moveBefore`). *Edit Widget* opens its settings, laid out like the app's: Show Title and the title, and for app widgets their devices, the settings their app declares (text, textarea, number, dropdown, checkbox, autocomplete) and how the widget runs here (see Security). Built-in widgets that show a chosen set pick it the same way (`BUILT_IN` in `js/sheets/widget-settings.js`): Devices, Batteries, Light, Lights, Speaker, Thermostat and Energy pick devices; Flows, Moods, Variables and Dashboards their own. A note picks its colour, and a line chart its Insights log (by zone, device or Homey's own sources), its time span (stored as `scale` and `resolution`) and Force Dark Mode (`darkMode`). A Timeline picks its categories under *Show only…* (Homey's notification owners; those switched off are stored as `excluded`), and the board leaves them out. The Homey app defines the built-in widgets' settings itself, and these follow what it stores; the others (zone widgets, cameras, sensors, zone controls, web frames, a note's text, a light's custom name) are still changed there. Adding and replacing widgets is left to the Homey app. Editing needs a key with `homey.dashboard` (not `homey.dashboard.readonly`); without it, Edit says so.
 
 On an iPad, *Share → Add to Home Screen* opens the dashboard without Safari's address bar. The home-screen app has its own storage, so it pairs once more.
+
+Live and snapshot camera widgets have a *Camera shape* setting in *Edit Widget*: Original, 16:9, 4:3 or Square. Taller shapes crop more of the sides. Favorite Devices and Devices widgets have a per-widget *Device tile size* setting.
 
 ## Developing
 
@@ -83,6 +87,7 @@ assets/web/
   js/screen.js          this browser's lasting screen id and the name the app gives it
   js/kiosk.js           kiosk mode: fixed dashboard, screen on, idle reset, hold the name for Settings
   js/fit.js             fit to screen width: zooms the board out so all columns fit
+  js/layout.js          per-browser column width, alignment and app widget heights
   js/highlight.js       shows the widget a flow highlighted, large or full screen
   js/mood-orb.js        mood icons: a gradient of the colours a mood sets (the Homey web app's method)
   manifest.json, img/   Add to Home Screen

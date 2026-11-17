@@ -18,22 +18,23 @@ function pick(ids, ...collections) {
 
 const favorites = (key, ...collections) => pick(state.me?.properties?.[key], ...collections);
 
-export function mountFavoriteDevices({ body }) {
+export function mountFavoriteDevices({ body, widget }) {
   if (!requireData(body, 'devices')) return;
   const devices = favorites('favoriteDevices', state.data.devices);
   if (devices.length === 0) return note(body, 'No favorite devices.');
-  return renderDeviceGrid(body, devices);
+  return renderDeviceGrid(body, devices, widget);
 }
 
 export function mountCustomDevices({ body, widget }) {
   if (!requireData(body, 'devices')) return;
   const devices = pick(widget.data?.deviceIds, state.data.devices);
   if (devices.length === 0) return note(body, 'These devices no longer exist.');
-  return renderDeviceGrid(body, devices);
+  return renderDeviceGrid(body, devices, widget);
 }
 
-export function renderDeviceGrid(body, devices) {
+export function renderDeviceGrid(body, devices, widget) {
   const grid = el('div', 'device-grid');
+  grid.dataset.tileSize = widget.data?.tileSize ?? 'medium';
   body.append(grid);
   const cleanups = [];
 

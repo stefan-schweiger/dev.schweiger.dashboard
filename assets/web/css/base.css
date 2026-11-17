@@ -85,7 +85,7 @@ html.kiosk, .kiosk body { overscroll-behavior: none; }
 /* ----- Board ----- */
 /* Columns keep their width and scroll sideways, snapping per column; on phones the next column peeks in. */
 .board {
-  --column-width: min(440px, calc(100vw - 56px));
+  --column-width: min(var(--dashboard-column-width, 440px), calc(100vw - 56px));
   display: flex;
   align-items: flex-start;
   gap: 24px;
@@ -104,11 +104,13 @@ html.kiosk, .kiosk body { overscroll-behavior: none; }
   .bar h1 { font-size: 28px; }
 }
 /* Fit to width (js/fit.js): columns keep their full width and the board is zoomed out to fit instead. */
-.fit .board { --column-width: 440px; }
+.fit .board { --column-width: var(--dashboard-column-width, 440px); }
 .column { flex: 0 0 var(--column-width); display: flex; flex-direction: column; gap: 28px; min-width: 0; scroll-snap-align: start; }
 /* Auto margins centre the columns when they fit and collapse to zero when they overflow. */
 .column:first-child { margin-left: auto; }
 .column:last-child { margin-right: auto; }
+.align-left .column:first-child { margin-left: 0; }
+.align-left .column:last-child { margin-right: auto; }
 .widget { min-width: 0; }
 .widget-title { margin: 0 0 12px; font-size: 24px; font-weight: 700; letter-spacing: -0.01em; }
 
@@ -162,7 +164,10 @@ dialog {
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 #setup h2 { margin: 0 0 12px; font-size: 20px; }
 #setup label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
-#setup select, #setup input:not([type="checkbox"]) { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--tile-border); background: var(--bg); }
+#setup select, #setup input:not([type="checkbox"]):not([type="range"]) { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--tile-border); background: var(--bg); }
+#setup input[type="range"] { width: 100%; margin: 4px 0; accent-color: var(--series-1); }
+#setup label[for="column-width"] { display: flex; justify-content: space-between; gap: 12px; }
+#column-width-value { color: var(--text-secondary); font-weight: 400; }
 #setup p { color: var(--text-secondary); font-size: 13px; margin: 6px 0 0; }
 #setup .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 #setup .primary { background: var(--series-1); color: #ffffff; }
@@ -199,3 +204,11 @@ dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 .widget-menu > button svg { flex: none; width: 22px; height: 22px; }
 .widget-menu .is-danger { color: var(--danger); }
 .widget-menu .is-confirming { font-weight: 600; }
+.widget-height-dialog { width: min(420px, calc(100vw - 32px)); }
+.widget-height-dialog h2 { margin: 0 0 10px; font-size: 20px; }
+.widget-height-dialog p { margin: 0 0 16px; color: var(--text-secondary); font-size: 14px; }
+.widget-height-dialog label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-weight: 600; }
+.widget-height-dialog output { color: var(--text-secondary); font-weight: 400; }
+.widget-height-dialog input[type="range"] { width: 100%; accent-color: var(--series-1); }
+.widget-height-dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.widget-height-dialog .primary { background: var(--series-1); color: #ffffff; }

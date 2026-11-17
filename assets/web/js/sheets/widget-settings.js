@@ -189,6 +189,20 @@ const TITLE_ONLY = {
   energy_dynamic_prices: null,
 };
 
+const CAMERA_WIDGETS = new Set(['device_camera_live', 'device_camera_snapshot']);
+const DEVICE_GRID_WIDGETS = new Set(['devices_custom', 'devices_favorites']);
+const CAMERA_ASPECTS = [
+  { id: 'auto', title: 'Original' },
+  { id: '16:9', title: '16:9' },
+  { id: '4:3', title: '4:3' },
+  { id: '1:1', title: 'Square' },
+];
+const DEVICE_TILE_SIZES = [
+  { id: 'small', title: 'Small' },
+  { id: 'medium', title: 'Medium' },
+  { id: 'large', title: 'Large' },
+];
+
 // An app widget's devices: its app's own, or any; narrowed by class and capabilities, where "a|b" is either and
 // "a,b" both. Kept as a list even when it is one.
 function appDevicePick(definition) {
@@ -302,6 +316,25 @@ export async function openWidgetSettings(dashboardId, widget, name) {
     group.append(row);
     return row;
   };
+  const choicePage = (pageTitle, selected, choices, onChoose, explanation) => ({
+    title: pageTitle,
+    render: (root) => {
+      const group = section(root);
+      for (const choice of choices) {
+        const row = el('button', 'ws-row ws-choice');
+        row.type = 'button';
+        row.append(el('span', 'ws-label', choice.title));
+        if (choice.id === selected) row.insertAdjacentHTML('beforeend', CHECK_ICON);
+        row.setAttribute('aria-pressed', String(choice.id === selected));
+        row.addEventListener('click', () => {
+          onChoose(choice.id);
+          back();
+        });
+        group.append(row);
+      }
+      hint(root, explanation);
+    },
+  });
   const switchRow = (group, label, checked, onChange) => {
     const row = el('div', 'ws-row');
     const toggle = el('button', 'switch');
@@ -469,6 +502,24 @@ export async function openWidgetSettings(dashboardId, widget, name) {
       root.append(preview);
     }
     renderTitleRows(section(root, 'Settings'));
+    if (CAMERA_WIDGETS.has(widget.type)) {
+      const group = section(root, 'Appearance');
+      const aspect = widget.data?.cameraAspect ?? 'auto';
+      rowButton(group, 'Camera shape', CAMERA_ASPECTS.find((choice) => choice.id === aspect)?.title ?? 'Original', () => {
+        open(choicePage('Camera shape', aspect, CAMERA_ASPECTS, (value) => {
+          draft.data.cameraAspect = value === 'auto' ? null : value;
+        }, 'Taller shapes crop more of the sides of the camera image.'));
+      });
+    }
+    if (DEVICE_GRID_WIDGETS.has(widget.type)) {
+      const group = section(root, 'Appearance');
+      const size = widget.data?.tileSize ?? 'medium';
+      rowButton(group, 'Device tile size', DEVICE_TILE_SIZES.find((choice) => choice.id === size)?.title ?? 'Medium', () => {
+        open(choicePage('Device tile size', size, DEVICE_TILE_SIZES, (value) => {
+          draft.data.tileSize = value === 'medium' ? null : value;
+        }, 'Changes how many device tiles fit across this widget.'));
+      });
+    }
     if (isApp && definition == null) {
       hint(root, "The app for this widget isn't running, so its own settings can't be changed now.");
     } else if (widget.type in TITLE_ONLY) {
@@ -477,7 +528,7 @@ export async function openWidgetSettings(dashboardId, widget, name) {
       hint(root, 'Its text is written in the Homey app.');
     } else if (widget.type === 'insights_chart_line' || isTimeline) {
       // All its settings are here.
-    } else if (!isApp && (builtIn == null || builtIn.more)) {
+    } else if (!CAMERA_WIDGETS.has(widget.type) && !isApp && (builtIn == null || builtIn.more)) {
       hint(root, "This widget's other settings can be changed in the Homey app.");
     }
     if (pick) renderPicks(section(root, pick.single ? pick.one : pick.many));

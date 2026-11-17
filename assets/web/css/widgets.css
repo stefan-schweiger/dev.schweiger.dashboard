@@ -26,6 +26,9 @@
 
 /* ----- Favorite devices ----- */
 .device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.device-grid[data-tile-size="small"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 100px), 1fr)); }
+.device-grid[data-tile-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 136px), 1fr)); }
+.device-grid[data-tile-size="large"] { grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); }
 .device-tile {
   position: relative;
   display: flex;

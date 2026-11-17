@@ -14,6 +14,11 @@ export function mountCameraSnapshot({ body, widget }) {
   const frame = el('div', 'snapshot');
   const img = el('img');
   img.alt = `${device.name} ${image.title ?? ''}`.trim();
+  if (widget.data?.cameraAspect && widget.data.cameraAspect !== 'auto') {
+    frame.style.aspectRatio = widget.data.cameraAspect.replace(':', ' / ');
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+  }
   frame.append(img);
   body.append(frame);
 

@@ -1,6 +1,7 @@
 // The parent side of Homey's CrossFrame protocol, so app widgets run in iframes like in the mobile app.
 
 import { isDarkMode } from './dom.js';
+import { getWidgetHeight } from './layout.js';
 import { subscribe } from './realtime.js';
 import { state } from './state.js';
 
@@ -65,11 +66,13 @@ async function handleWidgetMessage(host, source, { event, data, callbackId }) {
         isDarkMode: isDarkMode(),
       };
     case 'ready':
-      applyWidgetHeight(host.iframe, data?.height);
+      if (data?.height != null) host.height = data.height;
+      applyWidgetHeight(host.iframe, host.height, host.instanceId);
       host.onReady();
       return null;
     case 'setHeight':
-      applyWidgetHeight(host.iframe, data?.height);
+      if (data?.height != null) host.height = data.height;
+      applyWidgetHeight(host.iframe, host.height, host.instanceId);
       return null;
     case 'api': {
       const method = String(data?.method ?? 'GET').toUpperCase();
@@ -120,13 +123,23 @@ function popupUrl(value, host) {
   return url.href;
 }
 
-// A height in pixels, or a percentage of the widget's width (as in the manifest's "height": "100%").
-export function applyWidgetHeight(iframe, height) {
+// A height in pixels, or a percentage of the widget's width (as in the manifest's "height": "100%"). Scale the
+// iframe contents while shrinking its layout viewport by the inverse amount, keeping the visible width in its column.
+export function applyWidgetHeight(iframe, height, widgetId) {
+  const scale = getWidgetHeight(widgetId) / 100;
+  const frame = iframe.parentElement;
+  iframe.style.width = `${100 / scale}%`;
+  iframe.style.transform = scale === 1 ? '' : `scale(${scale})`;
+  iframe.style.transformOrigin = 'top left';
   if (typeof height === 'string' && height.trim().endsWith('%')) {
     const percent = parseFloat(height);
     if (percent > 0) {
       iframe.style.height = 'auto';
-      iframe.style.aspectRatio = `100 / ${percent}`;
+      iframe.style.aspectRatio = `100 / ${percent * scale}`;
+      if (frame) {
+        frame.style.height = 'auto';
+        frame.style.aspectRatio = `100 / ${percent * scale}`;
+      }
     }
     return;
   }
@@ -134,6 +147,16 @@ export function applyWidgetHeight(iframe, height) {
   if (height != null && pixels > 0) {
     iframe.style.aspectRatio = '';
     iframe.style.height = `${pixels}px`;
+    if (frame) {
+      frame.style.aspectRatio = '';
+      frame.style.height = `${pixels * scale}px`;
+    }
+  }
+}
+
+export function refreshWidgetHeight(widgetId) {
+  for (const host of widgetHosts.values()) {
+    if (host.instanceId === widgetId) applyWidgetHeight(host.iframe, host.height, host.instanceId);
   }
 }
 

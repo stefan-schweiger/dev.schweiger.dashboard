@@ -3,9 +3,11 @@
 // away (dashboard-save.js), so Done only leaves edit mode. Adding and replacing widgets is left to the Homey app.
 
 import { NO_EDIT_PERMISSION, canEditDashboards, locateWidget, updateDashboard } from './dashboard-save.js';
+import { refreshWidgetHeight } from './crossframe-host.js';
 import { $, el, toast } from './dom.js';
 import { CHEVRON_DOWN, CHEVRON_LEFT, CHEVRON_RIGHT, CHEVRON_UP, EDIT_ICON, MORE_ICON, TRASH_ICON } from './icons.js';
 import { isKiosk } from './kiosk.js';
+import { getWidgetHeight, setWidgetHeight } from './layout.js';
 import { openWidgetSettings } from './sheets/widget-settings.js';
 import { state } from './state.js';
 
@@ -27,6 +29,53 @@ function closeMenu() {
   menu?.remove();
   menu = null;
   menuAnchor = null;
+}
+
+function openWidgetHeightDialog(widgetId, name) {
+  const dialog = el('dialog', 'widget-height-dialog');
+  const form = el('form');
+  form.method = 'dialog';
+  form.append(el('h2', null, `Scale ${name}`));
+  form.append(el('p', null, 'Scales this app widget’s contents and height while keeping it within the column width.'));
+
+  const height = el('input');
+  height.type = 'range';
+  height.min = '100';
+  height.max = '150';
+  height.step = '10';
+  height.value = String(getWidgetHeight(widgetId));
+  const label = el('label');
+  label.htmlFor = `widget-height-${widgetId}`;
+  height.id = label.htmlFor;
+  const value = el('output', null, `${height.value}%`);
+  value.htmlFor = height.id;
+  label.append(el('span', null, 'Scale'), value);
+  form.append(label, height);
+
+  const actions = el('div', 'actions');
+  const reset = el('button', 'round-button', 'Reset');
+  reset.type = 'button';
+  reset.addEventListener('click', () => {
+    height.value = '100';
+    value.value = '100%';
+    value.textContent = '100%';
+    setWidgetHeight(widgetId, 100);
+    refreshWidgetHeight(widgetId);
+  });
+  const done = el('button', 'round-button primary', 'Done');
+  done.type = 'submit';
+  actions.append(reset, done);
+  form.append(actions);
+  height.addEventListener('input', () => {
+    value.value = `${height.value}%`;
+    value.textContent = `${height.value}%`;
+    setWidgetHeight(widgetId, height.value);
+    refreshWidgetHeight(widgetId);
+  });
+  dialog.append(form);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
 }
 
 // Under the ••• button, kept on screen; it follows the widget while the page scrolls.
@@ -103,6 +152,12 @@ function openMenu(anchor, { dashboardId, widgetId, name }) {
     closeMenu();
     openWidgetSettings(dashboardId, widget, name);
   });
+  const adjustHeight = widget.type === 'app_webview'
+    ? item('Scale app widget', '', '', () => {
+      closeMenu();
+      openWidgetHeightDialog(widget.id, name);
+    })
+    : null;
   // A second tap removes it, so a stray one doesn't.
   const remove = item('Remove Widget', TRASH_ICON, 'is-danger', () => {
     if (!remove.classList.contains('is-confirming')) {
@@ -115,7 +170,9 @@ function openMenu(anchor, { dashboardId, widgetId, name }) {
       all[at].widgets.splice(place, 1);
     });
   });
-  menu.append(moves, edit, remove);
+  menu.append(moves, edit);
+  if (adjustHeight) menu.append(adjustHeight);
+  menu.append(remove);
   document.body.append(menu);
   menuAnchor = anchor;
   placeMenu();
