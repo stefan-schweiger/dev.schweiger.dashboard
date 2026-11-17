@@ -477,6 +477,8 @@ dialog.timeline-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 .camera-live { position: relative; }
 .camera-live video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000000; }
 .camera-overlay { position: absolute; inset: auto 0 0 0; padding: 40px 72px 14px 18px; background: linear-gradient(transparent, rgb(0 0 0 / 0.55)); color: #ffffff; pointer-events: none; }
+.camera-live.is-clean.is-streaming .camera-overlay { display: none; }
+.camera-live.is-clean:not(.is-streaming) .camera-name { display: none; }
 .camera-name { font-size: 19px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .camera-status { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 15px; pointer-events: auto; cursor: pointer; }
 .camera-status.is-live { cursor: default; }

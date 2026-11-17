@@ -33,6 +33,8 @@ Closing a highlight on one screen (✕, Esc or a tap beside it) closes it on eve
 
 On an iPad, *Share → Add to Home Screen* opens the dashboard without Safari's address bar. The home-screen app has its own storage, so it pairs once more.
 
+The live camera widget also has a *Clean camera card* setting, which hides the camera name and Live label while streaming while keeping the full-screen control.
+
 ## Developing
 
 Plain ES modules, no build step, no dependencies. Serve the dashboard folder over HTTP (browsers don't load modules from `file://`):

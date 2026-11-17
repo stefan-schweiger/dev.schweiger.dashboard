@@ -469,6 +469,13 @@ export async function openWidgetSettings(dashboardId, widget, name) {
       root.append(preview);
     }
     renderTitleRows(section(root, 'Settings'));
+    if (widget.type === 'device_camera_live') {
+      const group = section(root, 'Appearance');
+      switchRow(group, 'Clean camera card', widget.data?.clean === true, (on) => {
+        draft.data.clean = on;
+      });
+      hint(root, 'When video is live, hides the camera name and Live label while keeping the full-screen control.');
+    }
     if (isApp && definition == null) {
       hint(root, "The app for this widget isn't running, so its own settings can't be changed now.");
     } else if (widget.type in TITLE_ONLY) {
