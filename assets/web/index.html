@@ -70,6 +70,14 @@
           that name. Rename it in the Homey app: Apps → Web Dashboard → Configure.</p>
       </div>
       <div id="setup-layout" hidden>
+        <label for="column-width">Column width <output id="column-width-value" for="column-width">440 px</output></label>
+        <input id="column-width" type="range" min="320" max="1000" step="20" value="440">
+        <p>Wider columns make camera cards larger while keeping their shape.</p>
+        <label for="column-alignment">Column alignment</label>
+        <select id="column-alignment">
+          <option value="center">Centered</option>
+          <option value="left">Left aligned</option>
+        </select>
         <label class="switch-row" for="fit-toggle">
           <span>Fit to screen width</span>
           <input id="fit-toggle" type="checkbox" role="switch" switch>

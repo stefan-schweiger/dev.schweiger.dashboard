@@ -28,7 +28,6 @@ export function mountAppWidget({ widget, section, body, setTitle }) {
   const frame = el('div', 'app-frame');
   const iframe = el('iframe', 'widget-frame');
   iframe.title = definition.name;
-  applyWidgetHeight(iframe, definition.height ?? 200);
   // Served by the Homey app, this page shares Homey's origin with every app's widgets. Without
   // allow-same-origin the widget runs in its own opaque origin, so it can't read the API key this page stores,
   // unless it is trusted (widget-modes.js). Set before the frame loads, so the first load is already sandboxed.
@@ -36,6 +35,7 @@ export function mountAppWidget({ widget, section, body, setTitle }) {
   if (mode !== 'trusted') iframe.setAttribute('sandbox', SANDBOX);
   const src = `${state.client.base}/app/${encodeURIComponent(appId)}/widgets/${encodeURIComponent(definition.ownerId)}/index.html?widgetInstanceId=${encodeURIComponent(widget.id)}`;
   frame.append(iframe);
+  applyWidgetHeight(iframe, definition.height ?? 200, widget.id);
   body.append(frame);
 
   const host = {
@@ -44,6 +44,7 @@ export function mountAppWidget({ widget, section, body, setTitle }) {
     appId,
     widgetId: definition.ownerId,
     instanceId: widget.id,
+    height: definition.height ?? 200,
     storage: mode === 'storage',
     settings: { ...defaults, ...(widget.data.settings ?? {}) },
     deviceIds: widget.data.deviceIds ?? [],

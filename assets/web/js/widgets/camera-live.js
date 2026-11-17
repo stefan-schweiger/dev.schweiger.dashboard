@@ -153,7 +153,13 @@ export function mountCameraLive({ body, widget }) {
   if (videoId == null) return note(body, `${device.name} has no live video.`);
 
   const frame = el('div', 'snapshot camera-live');
+  if (widget.data?.cameraAspect && widget.data.cameraAspect !== 'auto') {
+    frame.style.aspectRatio = widget.data.cameraAspect.replace(':', ' / ');
+  }
   const player = el('video');
+  if (widget.data?.cameraAspect && widget.data.cameraAspect !== 'auto') {
+    player.style.aspectRatio = widget.data.cameraAspect.replace(':', ' / ');
+  }
   player.muted = true;
   player.playsInline = true;
   player.autoplay = true;

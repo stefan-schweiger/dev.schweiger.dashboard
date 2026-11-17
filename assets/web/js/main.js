@@ -3,7 +3,8 @@
 import { APP_ID, loadConfig, servedByHomey, writeStoredConfig } from './config.js';
 import { isSaving, loadKeyScopes } from './dashboard-save.js';
 import { initEditMode } from './edit-mode.js';
-import { initFit, isFit, setFit } from './fit.js';
+import { fitBoard, initFit, isFit, setFit } from './fit.js';
+import { getLayout, initLayout, setColumnAlignment, setColumnWidth } from './layout.js';
 import { $, darkQuery, el } from './dom.js';
 import { DASHBOARD_ICON } from './icons.js';
 import { createClient } from './homey-api.js';
@@ -191,6 +192,11 @@ function openSetup(errorText) {
   $('setup-kiosk').hidden = !connected;
   $('setup-done').hidden = !connected;
   $('fit-toggle').checked = isFit();
+  const layout = getLayout();
+  $('column-width').value = String(layout.columnWidth);
+  $('column-width-value').value = `${layout.columnWidth} px`;
+  $('column-width-value').textContent = `${layout.columnWidth} px`;
+  $('column-alignment').value = layout.alignment;
   $('kiosk-toggle').checked = isKiosk();
   $('kiosk-screen').hidden = !isKiosk();
   $('kiosk-screen').textContent = {
@@ -223,6 +229,13 @@ function openSetup(errorText) {
 $('setup').addEventListener('close', () => pairing.stop());
 $('setup-done').addEventListener('click', () => $('setup').close());
 $('fit-toggle').addEventListener('change', (event) => setFit(event.target.checked));
+$('column-width').addEventListener('input', (event) => {
+  setColumnWidth(event.target.value);
+  $('column-width-value').value = `${event.target.value} px`;
+  $('column-width-value').textContent = `${event.target.value} px`;
+  fitBoard();
+});
+$('column-alignment').addEventListener('change', (event) => setColumnAlignment(event.target.value));
 // Kiosk mode: this browser always shows the chosen dashboard. Turning it on shows the result straight away;
 // holding the dashboard name brings Settings back.
 $('kiosk-toggle').addEventListener('change', (event) => {
@@ -368,6 +381,7 @@ async function boot() {
 }
 
 initKiosk({ onHold: openUnlock, onIdle: kioskIdle });
+initLayout();
 initFit();
 initEditMode();
 boot();
