@@ -153,6 +153,7 @@ export function mountCameraLive({ body, widget }) {
   if (videoId == null) return note(body, `${device.name} has no live video.`);
 
   const frame = el('div', 'snapshot camera-live');
+  frame.classList.toggle('is-clean', widget.data?.clean === true);
   const player = el('video');
   player.muted = true;
   player.playsInline = true;
@@ -192,6 +193,7 @@ export function mountCameraLive({ body, widget }) {
   const showStatus = (text) => {
     status.textContent = text || 'Live';
     status.classList.toggle('is-live', !text);
+    frame.classList.toggle('is-streaming', !text);
   };
   let shared = null;
   let unsubscribe = null;
